@@ -1,3 +1,4 @@
+"use client";
 import { Box, Typography } from "@mui/material";
 import { cyan, blue, deepPurple, pink } from "@mui/material/colors";
 

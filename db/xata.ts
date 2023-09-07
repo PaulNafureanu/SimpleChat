@@ -5,7 +5,6 @@ import type {
   SchemaInference,
   XataRecord,
 } from "@xata.io/client";
-
 const tables = [
   {
     name: "Users",
