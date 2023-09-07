@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "label": "Favourites",
+    "conversations": [13, 67, 99, 99, 41, 45, 35]
+  },
+  { "id": 2, "label": "Family", "conversations": [95, 91, 64, 81, 49, 26] },
+  { "id": 3, "label": "School", "conversations": [1, 73, 37, 86, 8, 26] },
+  { "id": 4, "label": "Work", "conversations": [29, 26, 79] },
+  { "id": 5, "label": "Friends", "conversations": [76, 8, 5, 61] }
+]

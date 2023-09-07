@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "label": "Favourites",
+    "conversations": [13, 67, 99, 99, 41, 45, 35]
+  },
+  { "id": 2, "label": "Saunderson", "conversations": [95, 91, 64, 81, 49, 26] },
+  { "id": 3, "label": "Rebe", "conversations": [1, 73, 37, 86, 8, 26] },
+  { "id": 4, "label": "Saundra", "conversations": [29, 26, 79] },
+  { "id": 5, "label": "Elysha", "conversations": [76, 8, 5, 61] },
+  { "id": 6, "label": "Alexina", "conversations": [10, 41, 95, 68, 75] },
+  { "id": 7, "label": "Gordon", "conversations": [65] },
+  { "id": 8, "label": "Ardisj", "conversations": [11, 50, 23] },
+  { "id": 9, "label": "Sybila", "conversations": [24, 56, 35, 89] },
+  { "id": 10, "label": "Lotty", "conversations": [52, 32, 27, 95, 66] }
+]
