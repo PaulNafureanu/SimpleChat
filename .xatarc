@@ -1,0 +1,6 @@
+{
+  "databaseURL": "https://PN-ijv3b3.eu-central-1.xata.sh/db/simplechat",
+  "codegen": {
+    "output": "db/xata.ts"
+  }
+}
