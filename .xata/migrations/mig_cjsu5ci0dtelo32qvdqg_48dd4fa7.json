@@ -1,0 +1,16 @@
+{
+  "id": "mig_cjsu5ci0dtelo32qvdqg",
+  "parentID": "mig_cjsu2rckc6scpeeaf4bg",
+  "checksum": "1:48dd4fa7d0bbcd9f739b1d3517164c59248d214ea80dc47966932e1d4024e378",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "conversations",
+          "type": "multiple"
+        },
+        "table": "Profiles"
+      }
+    }
+  ]
+}

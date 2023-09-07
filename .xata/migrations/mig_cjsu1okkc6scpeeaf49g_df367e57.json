@@ -1,0 +1,20 @@
+{
+  "id": "mig_cjsu1okkc6scpeeaf49g",
+  "parentID": "mig_cjsu1i1gj6sj7bhg6dt0",
+  "checksum": "1:df367e5701c54f0fb0c3e6d7827b30780ef9275e750dc7c555bda1f016522fbd",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "user",
+          "type": "link",
+          "link": {
+            "table": "Users"
+          },
+          "unique": true
+        },
+        "table": "Profiles"
+      }
+    }
+  ]
+}

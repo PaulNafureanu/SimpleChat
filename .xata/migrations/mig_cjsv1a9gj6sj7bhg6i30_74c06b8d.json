@@ -1,0 +1,18 @@
+{
+  "id": "mig_cjsv1a9gj6sj7bhg6i30",
+  "parentID": "mig_cjsv111gj6sj7bhg6i20",
+  "checksum": "1:74c06b8d24261e07b2a1a195b0bbbb673c90deaee92d69700046babf496bb77a",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "label",
+          "type": "string",
+          "notNull": true,
+          "defaultValue": "Insert name"
+        },
+        "table": "Categories"
+      }
+    }
+  ]
+}

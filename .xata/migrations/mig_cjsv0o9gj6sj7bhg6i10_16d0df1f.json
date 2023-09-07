@@ -1,0 +1,14 @@
+{
+  "id": "mig_cjsv0o9gj6sj7bhg6i10",
+  "parentID": "mig_cjsu9v1gj6sj7bhg6ffg",
+  "checksum": "1:16d0df1ff587539d47bd6759e2f1bd57a7ff0fa352e5f7f5e9e9313a41297a37",
+  "operations": [
+    {
+      "renameColumn": {
+        "newName": "categories",
+        "oldName": "conversations",
+        "table": "Profiles"
+      }
+    }
+  ]
+}

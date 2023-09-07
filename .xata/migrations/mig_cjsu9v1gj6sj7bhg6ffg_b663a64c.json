@@ -1,0 +1,14 @@
+{
+  "id": "mig_cjsu9v1gj6sj7bhg6ffg",
+  "parentID": "mig_cjsu9ha0dtelo32qve70",
+  "checksum": "1:b663a64ca4a74052e4c1f57c41f92d2be2ccfa7a3a988efaeb9dbcdc3cacb98c",
+  "operations": [
+    {
+      "renameColumn": {
+        "newName": "profiles",
+        "oldName": "users",
+        "table": "Chats"
+      }
+    }
+  ]
+}

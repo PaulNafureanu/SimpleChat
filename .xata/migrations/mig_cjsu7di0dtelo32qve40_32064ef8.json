@@ -1,0 +1,18 @@
+{
+  "id": "mig_cjsu7di0dtelo32qve40",
+  "parentID": "mig_cjsu6u4kc6scpeeaf590",
+  "checksum": "1:32064ef8b6b82d0c21155e41d565a0d36188a3c58f3721880794f152bf7c2be6",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "label",
+          "type": "string",
+          "notNull": true,
+          "defaultValue": "Insert name"
+        },
+        "table": "Conversations"
+      }
+    }
+  ]
+}

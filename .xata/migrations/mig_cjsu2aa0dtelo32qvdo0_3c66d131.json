@@ -1,0 +1,16 @@
+{
+  "id": "mig_cjsu2aa0dtelo32qvdo0",
+  "parentID": "mig_cjsu25i0dtelo32qvdn0",
+  "checksum": "1:3c66d1312831fee8c9be1e93f81c70aeda6b0bec8a0d4d9990aa05a8acef7e51",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "first_name",
+          "type": "string"
+        },
+        "table": "Profiles"
+      }
+    }
+  ]
+}

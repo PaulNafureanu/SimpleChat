@@ -1,0 +1,19 @@
+{
+  "id": "mig_cjsu7o1gj6sj7bhg6fcg",
+  "parentID": "mig_cjsu7g9gj6sj7bhg6fbg",
+  "checksum": "1:d072c9c8f1b2e06d0d2452cec1d3394ab3a934ee4de756c22ca4700ef5ccb163",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "from",
+          "type": "link",
+          "link": {
+            "table": "Users"
+          }
+        },
+        "table": "Messages"
+      }
+    }
+  ]
+}

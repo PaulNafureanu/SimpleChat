@@ -1,0 +1,18 @@
+{
+  "id": "mig_cjsu9ha0dtelo32qve70",
+  "parentID": "mig_cjsu8fhgj6sj7bhg6feg",
+  "checksum": "1:d8ed4d19856dfabee2d153fc177870b35a6889d04cc1189936274c90a40b6e53",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "delivered",
+          "type": "datetime",
+          "notNull": true,
+          "defaultValue": "now"
+        },
+        "table": "Messages"
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "mig_cjsu89q0dtelo32qve60",
+  "parentID": "mig_cjsu82q0dtelo32qve50",
+  "checksum": "1:cb0f2f3ee01d45c005cd0abd107000ab1ebac8f99d98a1be209ac1e03fb08d4f",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "to",
+          "type": "link",
+          "link": {
+            "table": "Chats"
+          }
+        },
+        "table": "Messages"
+      }
+    }
+  ]
+}

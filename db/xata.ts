@@ -6,12 +6,108 @@ import type {
   XataRecord,
 } from "@xata.io/client";
 
-const tables = [] as const;
+const tables = [
+  {
+    name: "Users",
+    columns: [
+      { name: "email", type: "email", unique: true },
+      { name: "password", type: "string", notNull: true, defaultValue: "_" },
+    ],
+    revLinks: [{ column: "user", table: "Profiles" }],
+  },
+  {
+    name: "Profiles",
+    columns: [
+      { name: "user", type: "link", link: { table: "Users" }, unique: true },
+      { name: "username", type: "string", unique: true },
+      { name: "first_name", type: "string" },
+      { name: "last_name", type: "string" },
+      { name: "gender", type: "string" },
+      { name: "birthday", type: "datetime" },
+      { name: "categories", type: "multiple" },
+    ],
+    revLinks: [{ column: "from", table: "Messages" }],
+  },
+  {
+    name: "Chats",
+    columns: [
+      { name: "profiles", type: "multiple" },
+      { name: "messages", type: "multiple" },
+    ],
+    revLinks: [
+      { column: "chat", table: "Conversations" },
+      { column: "to", table: "Messages" },
+    ],
+  },
+  {
+    name: "Conversations",
+    columns: [
+      { name: "chat", type: "link", link: { table: "Chats" } },
+      {
+        name: "label",
+        type: "string",
+        notNull: true,
+        defaultValue: "Insert name",
+      },
+    ],
+  },
+  {
+    name: "Messages",
+    columns: [
+      { name: "from", type: "link", link: { table: "Profiles" } },
+      { name: "to", type: "link", link: { table: "Chats" } },
+      { name: "text", type: "text" },
+      {
+        name: "delivered",
+        type: "datetime",
+        notNull: true,
+        defaultValue: "now",
+      },
+    ],
+  },
+  {
+    name: "Categories",
+    columns: [
+      { name: "conversations", type: "multiple" },
+      {
+        name: "label",
+        type: "string",
+        notNull: true,
+        defaultValue: "Insert name",
+      },
+    ],
+  },
+] as const;
 
 export type SchemaTables = typeof tables;
 export type InferredTypes = SchemaInference<SchemaTables>;
 
-export type DatabaseSchema = {};
+export type Users = InferredTypes["Users"];
+export type UsersRecord = Users & XataRecord;
+
+export type Profiles = InferredTypes["Profiles"];
+export type ProfilesRecord = Profiles & XataRecord;
+
+export type Chats = InferredTypes["Chats"];
+export type ChatsRecord = Chats & XataRecord;
+
+export type Conversations = InferredTypes["Conversations"];
+export type ConversationsRecord = Conversations & XataRecord;
+
+export type Messages = InferredTypes["Messages"];
+export type MessagesRecord = Messages & XataRecord;
+
+export type Categories = InferredTypes["Categories"];
+export type CategoriesRecord = Categories & XataRecord;
+
+export type DatabaseSchema = {
+  Users: UsersRecord;
+  Profiles: ProfilesRecord;
+  Chats: ChatsRecord;
+  Conversations: ConversationsRecord;
+  Messages: MessagesRecord;
+  Categories: CategoriesRecord;
+};
 
 const DatabaseClient = buildClient();
 

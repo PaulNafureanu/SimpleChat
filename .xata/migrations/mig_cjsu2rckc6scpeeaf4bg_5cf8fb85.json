@@ -1,0 +1,16 @@
+{
+  "id": "mig_cjsu2rckc6scpeeaf4bg",
+  "parentID": "mig_cjsu2lckc6scpeeaf4ag",
+  "checksum": "1:5cf8fb85231150275b431e6096fc1fbf1fbae07dc3cb41a0c7bc174b2a428199",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "birthday",
+          "type": "datetime"
+        },
+        "table": "Profiles"
+      }
+    }
+  ]
+}
