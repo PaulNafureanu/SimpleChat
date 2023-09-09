@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 
 class HashGenerator {
-  private static saltRounds = 10;
+  private static saltRounds = 12;
   private constructor() {}
 
   static hash = async (data: string) => {
