@@ -21,7 +21,7 @@ export default async function Home() {
 
   let profile: Profile | undefined;
   if (demoProfile) profile = ProfileSerializer(demoProfile);
-  console.log("Server: ", profile);
+  // console.log("Server: ", profile);
 
   return (
     <Box sx={styles.root}>
