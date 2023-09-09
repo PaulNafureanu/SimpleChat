@@ -1,6 +1,6 @@
 import { Avatar, Badge, Box, Stack, Typography } from "@mui/material";
 import ColorGenerator from "../../lib/ColorGenerator";
-import StyledBadge from "../../lib/StyledBadge";
+import StyledBadge from "../reusable/StyledBadge";
 
 interface Props {
   id: number;
