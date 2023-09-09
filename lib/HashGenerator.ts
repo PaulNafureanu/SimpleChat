@@ -4,7 +4,7 @@ class HashGenerator {
   private static saltRounds = 12;
   private constructor() {}
 
-  static hash = async (data: string) => {
+  static readonly hash = async (data: string) => {
     try {
       const hashResult = await bcrypt.hash(data, HashGenerator.saltRounds);
       return hashResult;
@@ -13,7 +13,7 @@ class HashGenerator {
     }
   };
 
-  static compare = async (data: string, hashResult: string) => {
+  static readonly compare = async (data: string, hashResult: string) => {
     try {
       const match = await bcrypt.compare(data, hashResult);
       return match;
