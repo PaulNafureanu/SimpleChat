@@ -1,5 +1,6 @@
 import "dotenv/config";
 import jwt from "jsonwebtoken";
+import ms from "ms";
 
 const JWT_ACCESS_SECRET_KEY = process.env.JWT_ACCESS_SECRET_KEY;
 const JWT_REFRESH_SECRET_KEY = process.env.JWT_REFRESH_SECRET_KEY;
@@ -7,6 +8,11 @@ const JWT_REFRESH_SECRET_KEY = process.env.JWT_REFRESH_SECRET_KEY;
 class TokenGenerator {
   private static audience = "http://localhost:3000";
   private static issuer = "http://localhost:3000";
+
+  static readonly expiration = {
+    access: ms("15m") / 1000,
+    refresh: ms("7d") / 1000,
+  };
 
   static readonly generate = {
     AccessToken: (payload: object = {}) => {
@@ -20,7 +26,7 @@ class TokenGenerator {
         },
         JWT_ACCESS_SECRET_KEY,
         {
-          expiresIn: "15m",
+          expiresIn: TokenGenerator.expiration.access,
         }
       );
     },
@@ -34,7 +40,7 @@ class TokenGenerator {
           iss: TokenGenerator.issuer,
         },
         JWT_REFRESH_SECRET_KEY,
-        { expiresIn: "7d" }
+        { expiresIn: TokenGenerator.expiration.refresh }
       );
     },
   };

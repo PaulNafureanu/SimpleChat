@@ -18,18 +18,20 @@ export async function POST(request: NextRequest) {
     // const { error, value } = Validator.validate.profile(data);
     // if (error) throw error;
 
-    const accessToken = TokenGenerator.generate.AccessToken();
-    const refreshToken = TokenGenerator.generate.RefreshToken();
+    const access = TokenGenerator.generate.AccessToken();
+    const refresh = TokenGenerator.generate.RefreshToken();
 
-    const dAccessToken = TokenGenerator.verify.AccessToken(accessToken);
-    const dRefreshToken = TokenGenerator.verify.RefreshToken(refreshToken);
+    // const vAccessToken = TokenGenerator.verify.AccessToken(accessToken);
+    // const vRefreshToken = TokenGenerator.verify.RefreshToken(refreshToken);
 
-    return NextResponse.json({
-      accessToken,
-      refreshToken,
-      dAccessToken,
-      dRefreshToken,
+    const response = NextResponse.json({ access });
+    response.cookies.set("refresh", refresh, {
+      httpOnly: true,
+      sameSite: true,
+      maxAge: TokenGenerator.expiration.refresh,
     });
+
+    return response;
   } catch (error) {
     if (error instanceof Validator.Error)
       return NextResponse.json(Validator.handleError(error), { status: 400 });
