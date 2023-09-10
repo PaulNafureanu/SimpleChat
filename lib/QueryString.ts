@@ -22,11 +22,13 @@ class QueryString {
     params.forEach((value, key) => {
       if (key in template) {
         if (Array.isArray((template as any)[key]))
-          (query as any)[key] = value
-            .split(",")
-            .map((value) =>
-              QueryString.convert((template as any)[key][0], value)
-            );
+          (query as any)[key] = value.includes(",")
+            ? value
+                .split(",")
+                .map((value) =>
+                  QueryString.convert((template as any)[key][0] || "", value)
+                )
+            : undefined;
         else
           (query as any)[key] = QueryString.convert(
             (template as any)[key],
@@ -41,7 +43,7 @@ class QueryString {
     query: object,
     domain: string | undefined = SERVER_DOMAIN
   ) => {
-    const init: any = {};
+    const init: { [key: string]: string } = {};
     for (const key in query) {
       const value = (query as any)[key];
       if (value === undefined || value === null) continue;
@@ -50,7 +52,11 @@ class QueryString {
         (value.includes(undefined) || value.includes(null))
       )
         continue;
-      init[key] = String(value);
+      if (!Array.isArray(value)) init[key] = String(value);
+      else
+        init[key] = String(
+          value.reduce((pValue, cValue) => `${pValue},${cValue}`)
+        );
     }
 
     const params = new URLSearchParams(init);

@@ -2,6 +2,7 @@ import { ValidUserProfile } from "@/lib/Validator";
 import { getXataClient } from "./xata";
 import HashGenerator from "@/lib/HashGenerator";
 import Serializer from "./Serializer";
+import QueryString from "@/lib/QueryString";
 
 const xata = getXataClient();
 const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "http://localhost:3000";
@@ -29,7 +30,10 @@ class UserProfile {
     query: UserProfileSearchQuery
   ): Promise<Collection<UserProfile>> => {
     // Define how the search query will be used
-    const { page = 1, size = 20 } = query;
+    let { page = 1, size = 20 } = query;
+    if (page < 0) page = 1;
+    if (size < 0) size = 1;
+
     const options = {
       pagination: { size: size + 1, offset: (page - 1) * size },
     };
@@ -42,15 +46,22 @@ class UserProfile {
     const count = hasNextPage ? results.length - 1 : results.length;
 
     // Define the URI for the next page
-    const nextQuery = new URLSearchParams({ page: "1" });
-    const next = `${SERVER_DOMAIN}?${nextQuery.toString()}`;
+    const baseURL = `${SERVER_DOMAIN}/api/profiles`;
+    const nextQuery = { ...query, page: page + 1 };
+    const next = hasNextPage ? QueryString.defineURL(nextQuery, baseURL) : null;
 
     // Define the URI for the previous page
-    const previousQuery = new URLSearchParams({ page: "1" });
-    const previous = `${SERVER_DOMAIN}?${previousQuery.toString()}`;
+    const previousQuery = { ...query, page: page - 1 };
+    const previous =
+      previousQuery.page > 0
+        ? QueryString.defineURL(previousQuery, baseURL)
+        : null;
+
+    // Set temp results;
+    const temp = [] as UserProfile[];
 
     // return the collection
-    return { count, hasNextPage, next, previous, results };
+    return { count, hasNextPage, next, previous, results: temp };
   };
 
   static readonly create = async (value: ValidUserProfile) => {

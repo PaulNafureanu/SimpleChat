@@ -56,7 +56,7 @@ type EnsureID<T> = Partial<T> & ID;
 interface Collection<T> {
   count: number;
   hasNextPage: boolean;
-  next?: string;
-  previous?: string;
+  next: string | null;
+  previous: string | null;
   results: T[];
 }
