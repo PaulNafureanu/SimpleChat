@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, context: Context) {
 }
 
 // Protected route: Partially update a profile using id
-export async function PATCH(request: NextRequest, context: Context) {
+export async function PUT(request: NextRequest, context: Context) {
   const { id } = context.params;
   const res = { id, method: request.method };
   return NextResponse.json(res);
