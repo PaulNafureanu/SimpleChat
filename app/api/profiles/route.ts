@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import Validator from "@/lib/Validator";
 import UserProfile from "@/db/UserProfile";
 import TokenGenerator from "@/lib/TokenGenerator";
+import QueryString from "@/lib/QueryString";
 
 // Protected route: get all profiles
 export async function GET(request: NextRequest) {
-  const res = { data: "profiles" };
+  try {
+    // Define the search query object and get all the specified profiles
+    const query = QueryString.define(request.url, UserProfile.QueryTemplate);
+    // const profiles = await UserProfile.getAll(query);
 
-  return NextResponse.json(res);
+    return NextResponse.json(query);
+  } catch (error) {
+    return NextResponse.json({ error }, { status: 500 });
+  }
 }
 
 // Public route: create a profile

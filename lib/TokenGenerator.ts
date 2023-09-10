@@ -4,10 +4,11 @@ import ms from "ms";
 
 const JWT_ACCESS_SECRET_KEY = process.env.JWT_ACCESS_SECRET_KEY;
 const JWT_REFRESH_SECRET_KEY = process.env.JWT_REFRESH_SECRET_KEY;
+const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "http://localhost:3000";
 
 class TokenGenerator {
-  private static audience = "http://localhost:3000";
-  private static issuer = "http://localhost:3000";
+  private static audience = SERVER_DOMAIN;
+  private static issuer = SERVER_DOMAIN;
 
   static readonly expiration = {
     access: ms("15m") / 1000,

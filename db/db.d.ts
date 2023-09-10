@@ -46,17 +46,17 @@ interface Categories {
 }
 
 /**
- * Compound Types
- */
-interface UserProfile {
-  user: User;
-  profile: Profile;
-}
-
-/**
  * Additional Utility Types
  */
 
 type ID<T> = { id: string };
 type OmitID<T> = Omit<T, "id">;
 type EnsureID<T> = Partial<T> & ID;
+
+interface Collection<T> {
+  count: number;
+  hasNextPage: boolean;
+  next?: string;
+  previous?: string;
+  results: T[];
+}

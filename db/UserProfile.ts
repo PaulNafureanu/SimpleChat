@@ -2,9 +2,57 @@ import { ValidUserProfile } from "@/lib/Validator";
 import { getXataClient } from "./xata";
 import HashGenerator from "@/lib/HashGenerator";
 import Serializer from "./Serializer";
+
 const xata = getXataClient();
+const SERVER_DOMAIN = process.env.SERVER_DOMAIN || "http://localhost:3000";
+
+interface UserProfileSearchQuery {
+  page?: number;
+  size?: number;
+  search?: string;
+  search_precise?: string;
+  categories?: string[];
+  conversations?: string[];
+}
 
 class UserProfile {
+  static readonly QueryTemplate: UserProfileSearchQuery = {
+    page: 0,
+    size: 0,
+    search: "",
+    search_precise: "",
+    categories: [""],
+    conversations: [""],
+  };
+
+  static readonly getAll = async (
+    query: UserProfileSearchQuery
+  ): Promise<Collection<UserProfile>> => {
+    // Define how the search query will be used
+    const { page = 1, size = 20 } = query;
+    const options = {
+      pagination: { size: size + 1, offset: (page - 1) * size },
+    };
+
+    // Get the user profiles
+    const results = await xata.db.Profiles.getMany(options);
+
+    // Compute the hasNextPage flag and the number of elements in the results array
+    const hasNextPage = results.length > size;
+    const count = hasNextPage ? results.length - 1 : results.length;
+
+    // Define the URI for the next page
+    const nextQuery = new URLSearchParams({ page: "1" });
+    const next = `${SERVER_DOMAIN}?${nextQuery.toString()}`;
+
+    // Define the URI for the previous page
+    const previousQuery = new URLSearchParams({ page: "1" });
+    const previous = `${SERVER_DOMAIN}?${previousQuery.toString()}`;
+
+    // return the collection
+    return { count, hasNextPage, next, previous, results };
+  };
+
   static readonly create = async (value: ValidUserProfile) => {
     // Create a new user
     const hashedPassword = await HashGenerator.hash(value.password);
