@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const query = QueryString.define(request.url, UserProfile.QueryTemplate);
     const userProfiles = await UserProfile.getAll(query);
 
-    return NextResponse.json({ query, profiles: userProfiles });
+    return NextResponse.json(userProfiles);
   } catch (error) {
     return NextResponse.json({ error }, { status: 500 });
   }

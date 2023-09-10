@@ -39,11 +39,11 @@ class UserProfile {
     };
 
     // Get the user profiles
-    const results = await xata.db.Profiles.getMany(options);
+    const profiles = await xata.db.Profiles.getMany(options);
 
     // Compute the hasNextPage flag and the number of elements in the results array
-    const hasNextPage = results.length > size;
-    const count = hasNextPage ? results.length - 1 : results.length;
+    const hasNextPage = profiles.length > size;
+    const count = hasNextPage ? profiles.length - 1 : profiles.length;
 
     // Define the URI for the next page
     const baseURL = `${SERVER_DOMAIN}/api/profiles`;
@@ -57,11 +57,9 @@ class UserProfile {
         ? QueryString.defineURL(previousQuery, baseURL)
         : null;
 
-    // Set temp results;
-    const temp = [] as UserProfile[];
-
-    // return the collection
-    return { count, hasNextPage, next, previous, results: temp };
+    //Serialize profiles and return the collection
+    const results = profiles.map((profile) => Serializer.profile(profile));
+    return { count, hasNextPage, next, previous, results };
   };
 
   static readonly create = async (value: ValidUserProfile) => {
