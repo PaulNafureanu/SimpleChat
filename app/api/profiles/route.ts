@@ -9,9 +9,10 @@ export async function GET(request: NextRequest) {
   try {
     // Define the search query object and get all the specified profiles
     const query = QueryString.define(request.url, UserProfile.QueryTemplate);
+    const url = QueryString.defineURL(query);
     // const profiles = await UserProfile.getAll(query);
 
-    return NextResponse.json(query);
+    return NextResponse.json({ query, url });
   } catch (error) {
     return NextResponse.json({ error }, { status: 500 });
   }

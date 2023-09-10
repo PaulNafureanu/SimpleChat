@@ -5,8 +5,10 @@ class QueryString {
     typeChecker: string | number | boolean,
     valueToConvert: string
   ) => {
-    if (typeof typeChecker === "number" || typeof typeChecker === "bigint")
-      return Number(valueToConvert);
+    if (typeof typeChecker === "number" || typeof typeChecker === "bigint") {
+      const converted = Number(valueToConvert);
+      return Number.isNaN(converted) ? undefined : converted;
+    }
     if (typeof typeChecker === "boolean") return valueToConvert === "true";
     return valueToConvert;
   };
@@ -41,7 +43,14 @@ class QueryString {
   ) => {
     const init: any = {};
     for (const key in query) {
-      init[key] = String((query as any)[key]);
+      const value = (query as any)[key];
+      if (value === undefined || value === null) continue;
+      if (
+        Array.isArray(value) &&
+        (value.includes(undefined) || value.includes(null))
+      )
+        continue;
+      init[key] = String(value);
     }
 
     const params = new URLSearchParams(init);
