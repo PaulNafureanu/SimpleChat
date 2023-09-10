@@ -58,6 +58,8 @@ class TokenGenerator {
     },
   };
 
+  static readonly handleError = (error: Error) => error.message;
+
   static readonly Error = jwt.JsonWebTokenError;
   static readonly ExpiredError = jwt.TokenExpiredError;
 }

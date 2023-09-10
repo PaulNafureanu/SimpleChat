@@ -3,7 +3,7 @@ import Joi from "joi";
 /**
  * Types used for Joi validation on the server
  */
-interface ValidUserProfile {
+export interface ValidUserProfile {
   email: string;
   password: string;
   username?: string;
