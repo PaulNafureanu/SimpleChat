@@ -1,4 +1,3 @@
-import "dotenv/config";
 import jwt from "jsonwebtoken";
 import ms from "ms";
 
@@ -56,6 +55,19 @@ class TokenGenerator {
       if (!JWT_REFRESH_SECRET_KEY)
         throw new jwt.JsonWebTokenError("JWT Refresh key undefined");
       return jwt.verify(token, JWT_REFRESH_SECRET_KEY);
+    },
+  };
+
+  static readonly decode = {
+    AccessToken: (token: string) => {
+      if (!JWT_ACCESS_SECRET_KEY)
+        throw new jwt.JsonWebTokenError("JWT Access key undefined");
+      return jwt.decode(token);
+    },
+    RefreshToken: (token: string) => {
+      if (!JWT_REFRESH_SECRET_KEY)
+        throw new jwt.JsonWebTokenError("JWT Refresh key undefined");
+      return jwt.decode(token);
     },
   };
 

@@ -3,17 +3,26 @@ import Validator from "@/lib/Validator";
 import UserProfile from "@/db/UserProfile";
 import TokenGenerator from "@/lib/TokenGenerator";
 import QueryString from "@/lib/QueryString";
+import Auth from "@/lib/Auth";
 
 // Protected route: get all profiles
 export async function GET(request: NextRequest) {
   try {
+    const auth = await Auth.authenticate(request);
+
+    return NextResponse.json(auth);
+
     // Define the search query object and get all the specified profiles
     const query = QueryString.define(request.url, UserProfile.QueryTemplate);
     const userProfiles = await UserProfile.getAll(query);
 
     return NextResponse.json(userProfiles);
   } catch (error) {
-    return NextResponse.json({ error }, { status: 500 });
+    if (error instanceof QueryString.Error)
+      return NextResponse.json(QueryString.handleError(error), { status: 500 });
+    if (error instanceof UserProfile.Error)
+      return NextResponse.json(UserProfile.handleError(error), { status: 500 });
+    return NextResponse.json((error as Error).message, { status: 500 });
   }
 }
 
@@ -58,6 +67,6 @@ export async function POST(request: NextRequest) {
         status: 500,
       });
 
-    return NextResponse.json({ error }, { status: 500 });
+    return NextResponse.json((error as Error).message, { status: 500 });
   }
 }
