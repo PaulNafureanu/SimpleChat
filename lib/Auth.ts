@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import TokenGenerator from "./TokenGenerator";
-import { getXataClient } from "@/db/xata";
+import { ProfilesRecord, getXataClient } from "@/db/xata";
+import { SelectedPick } from "@xata.io/client";
 
 const xata = getXataClient();
 
-// Get user id  if access token is valid and store it in subject
-// Otherwise, refresh access token if expired and try getting the subject
-// Otherwise, throw error.
+interface AuthCheck {
+  profile: Readonly<SelectedPick<ProfilesRecord, ["*"]>>;
+  access?: string;
+}
+
+// Get the profile if access token is valid
+// Otherwise, refresh access token if expired and try getting the profile again
+// Return the new acess token and profile, otherwise, throw error.
 class Auth {
   private static readonly getTokens = (request: NextRequest) => {
     // Get the schema, access and refresh jwt tokens
@@ -55,7 +61,9 @@ class Auth {
     },
   };
 
-  static readonly authenticate = async (request: NextRequest) => {
+  static readonly authenticate = async (
+    request: NextRequest
+  ): Promise<AuthCheck> => {
     try {
       const { access, refresh } = Auth.getTokens(request);
       let profile = await Auth.getProfile.useAccessToken(access);
@@ -68,7 +76,16 @@ class Auth {
     }
   };
 
-  static readonly handleResponse = async () => {};
+  static readonly handleResponse = async (
+    response: NextResponse,
+    auth: AuthCheck
+  ) => {
+    if (auth.access) {
+      response.headers.set("jwt-access-changed", auth.access);
+    }
+
+    return response;
+  };
 
   static readonly handleError = (error: Error) => error.message;
 

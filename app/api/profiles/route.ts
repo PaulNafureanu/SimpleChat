@@ -8,16 +8,19 @@ import Auth from "@/lib/Auth";
 // Protected route: get all profiles
 export async function GET(request: NextRequest) {
   try {
+    // Profile authentication check on the request
     const auth = await Auth.authenticate(request);
-
-    return NextResponse.json(auth);
 
     // Define the search query object and get all the specified profiles
     const query = QueryString.define(request.url, UserProfile.QueryTemplate);
     const userProfiles = await UserProfile.getAll(query);
 
-    return NextResponse.json(userProfiles);
+    // Return the proper response
+    const response = NextResponse.json(userProfiles);
+    return Auth.handleResponse(response, auth);
   } catch (error) {
+    if (error instanceof Auth.Error)
+      return NextResponse.json(Auth.handleError(error), { status: 401 });
     if (error instanceof QueryString.Error)
       return NextResponse.json(QueryString.handleError(error), { status: 500 });
     if (error instanceof UserProfile.Error)
@@ -58,15 +61,12 @@ export async function POST(request: NextRequest) {
     // Handle specific errors
     if (error instanceof Validator.Error)
       return NextResponse.json(Validator.handleError(error), { status: 400 });
-
     if (error instanceof UserProfile.Error)
       return NextResponse.json(UserProfile.handleError(error), { status: 500 });
-
     if (error instanceof TokenGenerator.Error)
       return NextResponse.json(TokenGenerator.handleError(error), {
         status: 500,
       });
-
     return NextResponse.json((error as Error).message, { status: 500 });
   }
 }
