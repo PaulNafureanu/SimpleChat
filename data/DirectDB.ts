@@ -46,7 +46,7 @@ class DirectDB {
   private static profiles = async (filename: string) => {
     const dataToUploadDB = await DirectDB.getDataFromFile(filename);
     for (const data of dataToUploadDB) {
-      const { error, value } = Validator.validate.profile(data);
+      const { error, value } = Validator.validate.userProfile(data);
       if (error) continue;
       await UserProfile.create(value);
     }

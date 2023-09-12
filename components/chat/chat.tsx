@@ -1,4 +1,3 @@
-"use client";
 import { Box, Slide, Typography } from "@mui/material";
 import { cyan, blue, deepPurple, pink } from "@mui/material/colors";
 
@@ -10,7 +9,7 @@ const styles = {
 };
 
 interface Prop {
-  profile?: Profile;
+  profile?: { id: string; email: string };
 }
 
 export default function Chat({ profile }: Prop) {
@@ -22,7 +21,8 @@ export default function Chat({ profile }: Prop) {
           width={"100%"}
           height={"100%"}
         >
-          <Typography>Hello</Typography>
+          <Typography>Time: {new Date().toLocaleTimeString()}</Typography>
+          <Typography>{profile?.id}</Typography>
         </Box>
       </Slide>
     </Box>

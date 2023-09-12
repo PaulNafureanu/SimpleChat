@@ -1,0 +1,36 @@
+[
+  {
+    "insert": { "table": "titles", "record": { "originalTitle": "A new film" } }
+  },
+  {
+    "insert": {
+      "table": "titles",
+      "record": { "id": "new-0", "originalTitle": "The squeel" },
+      "createOnly": true
+    }
+  },
+  {
+    "update": {
+      "table": "titles",
+      "id": "new-0",
+      "fields": { "originalTitle": "The sequel" },
+      "ifVersion": 0
+    }
+  },
+  {
+    "update": {
+      "table": "titles",
+      "id": "new-1",
+      "fields": { "originalTitle": "The third" },
+      "upsert": true
+    }
+  },
+  {
+    "get": {
+      "table": "titles",
+      "id": "new-0",
+      "columns": ["id", "originalTitle"]
+    }
+  },
+  { "delete": { "table": "titles", "id": "new-0" } }
+]

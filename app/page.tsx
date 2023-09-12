@@ -1,11 +1,8 @@
 import Chat from "@/components/chat/chat";
 import Conversations from "@/components/conversations/conversations";
 import Menu from "@/components/menu/menu";
-import { ProfileSerializer } from "@/db/Serializer";
-import { getXataClient } from "@/db/xata";
+import UserProfile from "@/db/UserProfile";
 import { Box, Grid } from "@mui/material";
-
-const xata = getXataClient();
 
 const styles = {
   root: {
@@ -16,12 +13,7 @@ const styles = {
 };
 
 export default async function Home() {
-  const demoProfileId = "rec_cjt03igdho96l57bv0a0";
-  const demoProfile = await xata.db.Profiles.read(demoProfileId);
-
-  let profile: Profile | undefined;
-  if (demoProfile) profile = ProfileSerializer(demoProfile);
-  // console.log("Server: ", profile);
+  const userProfile = await UserProfile.get("rec_cjutmrqcpifs90st609g");
 
   return (
     <Box sx={styles.root}>
@@ -33,7 +25,7 @@ export default async function Home() {
           <Conversations />
         </Grid>
         <Grid item md={8}>
-          <Chat profile={profile} />
+          <Chat profile={userProfile} />
         </Grid>
       </Grid>
     </Box>

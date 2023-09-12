@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
 
     // Validate input data
-    const { error, value } = Validator.validate.profile(data);
+    const { error, value } = Validator.validate.userProfile(data);
     if (error) throw error;
 
     // Create a new user profile serialized

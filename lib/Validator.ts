@@ -18,7 +18,7 @@ const charNotAllowed = /^[^;,'"`*=/]*$/;
 class Validator {
   private static options = { abortEarly: false };
 
-  private static profileSchema = Joi.object<ValidUserProfile>({
+  private static userProfileSchema = Joi.object<ValidUserProfile>({
     email: Joi.string().email().pattern(charNotAllowed).required(),
     password: Joi.string().pattern(charNotAllowed).min(5).max(30).required(),
     username: Joi.string().pattern(charNotAllowed).max(16).optional(),
@@ -28,9 +28,19 @@ class Validator {
     birthday: Joi.string().isoDate().max(30).optional(),
   });
 
+  private static partialUserProfileScheme = Validator.userProfileSchema.keys({
+    email: Joi.string().email().pattern(charNotAllowed).optional(),
+    password: Joi.string().pattern(charNotAllowed).min(5).max(30).optional(),
+  });
+
   static readonly validate = {
-    profile: (data: any) =>
-      Validator.profileSchema.validate(data, Validator.options),
+    userProfile: (data: any) =>
+      Validator.userProfileSchema.validate(data, Validator.options),
+    partialUserProfile: (data: any) =>
+      Validator.partialUserProfileScheme.validate(
+        data,
+        Validator.options
+      ) as Joi.ValidationResult<Partial<ValidUserProfile>>,
   };
 
   static readonly handleError = (error: Joi.ValidationError) => {
