@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Validator from "@/lib/Validator";
+import Validator from "@/db/Validator";
 import UserProfile from "@/db/UserProfile";
 import TokenGenerator from "@/lib/TokenGenerator";
 import QueryString from "@/lib/QueryString";

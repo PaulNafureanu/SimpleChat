@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import Validator from "@/lib/Validator";
+import Validator from "@/db/Validator";
 import UserProfile from "@/db/UserProfile";
 import fs from "node:fs";
 import path from "node:path";

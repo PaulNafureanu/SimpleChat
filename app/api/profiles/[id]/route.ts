@@ -1,6 +1,6 @@
 import UserProfile from "@/db/UserProfile";
 import Auth from "@/lib/Auth";
-import Validator from "@/lib/Validator";
+import Validator from "@/db/Validator";
 import { NextRequest, NextResponse } from "next/server";
 
 interface Context {

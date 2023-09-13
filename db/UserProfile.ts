@@ -1,4 +1,4 @@
-import { ValidUserProfile } from "@/lib/Validator";
+import { ValidUserProfile } from "@/db/Validator";
 import { getXataClient } from "./xata";
 import HashGenerator from "@/lib/HashGenerator";
 import Serializer from "./Serializer";
@@ -42,9 +42,7 @@ class UserProfile {
     return { ...serializedProfile, ...serializedUser };
   };
 
-  static readonly getAll = async (
-    query: UserProfileSearchQuery
-  ): Promise<Collection<UserProfile>> => {
+  static readonly getAll = async (query: UserProfileSearchQuery) => {
     // Define how the search query will be used
     let { page = 1, size = 20 } = query;
     if (page < 0) page = 1;
