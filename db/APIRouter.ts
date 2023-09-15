@@ -31,17 +31,17 @@ interface Collection<R> {
  */
 interface APIRouterOptions {
   collections: Repository<any & XataRecord>[];
-  collectionMap: Relation[];
+  collectionMap: CollectionMap;
   validator: (data: any) => ValidationResult;
   querystring: (url: string) => Partial<BaseQueryString>;
 }
 /**
- * A collection relationship useful on loading order and selective loading.
+ * Collection relationship useful to determine the loading order and selective loading.
  * (A way to tell based on which collection, another collection should be loaded)
  */
-interface Relation {
-  fromCollection: number;
-  loadCollections: number[];
+interface CollectionMap {
+  fromCollectionID: number;
+  loadCollectionIDs: number[];
   usingKeys: string[];
 }
 
@@ -161,12 +161,19 @@ class APIRouter {
       // Hash sensitive fields before inserting them into the xata database
       const value = await APIRouter.sensitive.hash(validInput);
 
-      // Create the item
-      const item = await this.collections.create({ ...(value as any) });
+      // Create the our object component by component
+      const components = await this.handleCollections.create(value);
 
-      // Serialize the item and return it
-      const serializedItem = item.toSerializable();
-      const json = APIRouter.sensitive.remove(serializedItem);
+      // Serialize and combine the serialized components
+      const serializedComponents = components.map((component) =>
+        component.toSerializable()
+      );
+      const serializedObject = serializedComponents.reduce((prev, curr) => {
+        return { ...prev, ...curr };
+      });
+
+      // return the object without sensitive keys
+      const json = APIRouter.sensitive.remove(serializedObject);
       return NextResponse.json(json);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
@@ -175,12 +182,19 @@ class APIRouter {
 
   public get = async (id: string) => {
     try {
-      // Get the item
-      const item = await this.collections.readOrThrow(id);
+      // Get the components of our object
+      const components = await this.handleCollections.get(id);
 
-      // Serialize the item and return it
-      const serializedItem = item.toSerializable();
-      const json = APIRouter.sensitive.remove(serializedItem);
+      // Serialize and combine the serialized components
+      const serializedComponents = components.map((component) =>
+        component.toSerializable()
+      );
+      const serializedObject = serializedComponents.reduce((prev, curr) => {
+        return { ...prev, ...curr };
+      });
+
+      // return the object without sensitive keys
+      const json = APIRouter.sensitive.remove(serializedObject);
       return NextResponse.json(json);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
@@ -196,14 +210,38 @@ class APIRouter {
       // Hash sensitive fields before inserting them into the xata database
       const value = await APIRouter.sensitive.hash(validInput);
 
-      // Update the item
-      const item = await this.collections.updateOrThrow(id, {
-        ...(value as any),
+      // Make a copy of our object
+      const components = await this.handleCollections.get(id);
+
+      // Serialize the components
+      let serializedComponents = components.map((component) =>
+        component.toSerializable()
+      );
+
+      // Update the key value pair of the components keeping track of which components got updated
+      const trackerIDs = [];
+      for (let key in value) {
+        for (let index = 0; index < serializedComponents.length; index++) {
+          if (key in serializedComponents[index]) {
+            serializedComponents[index] = (value as any)[key];
+            trackerIDs.push(index);
+            break;
+          }
+        }
+      }
+
+      // Update the object component by component using the tracker
+      trackerIDs.forEach(async (id) => {
+        await this.collections[id].updateOrThrow(serializedComponents[id]);
       });
 
-      //Serialize the item and return it
-      const serializedItem = item.toSerializable();
-      const json = APIRouter.sensitive.remove(serializedItem);
+      // Combine the updated components
+      const serializedObject = serializedComponents.reduce((prev, curr) => {
+        return { ...prev, ...curr };
+      });
+
+      // return the object without sensitive keys
+      const json = APIRouter.sensitive.remove(serializedObject);
       return NextResponse.json(json);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
@@ -212,12 +250,24 @@ class APIRouter {
 
   public delete = async (id: string) => {
     try {
-      // Delete the item
-      const item = await this.collections.deleteOrThrow(id);
+      // Make a copy of our object
+      const components = await this.handleCollections.get(id);
 
-      // Serialize the item and return it
-      const serializedItem = item.toSerializable();
-      const json = APIRouter.sensitive.remove(serializedItem);
+      // Delete the object component by component:
+      this.collections.forEach(async (collection, index) => {
+        await collection.deleteOrThrow(components[index]);
+      });
+
+      // Serialize and combine the serialized components
+      const serializedComponents = components.map((component) =>
+        component.toSerializable()
+      );
+      const serializedObject = serializedComponents.reduce((prev, curr) => {
+        return { ...prev, ...curr };
+      });
+
+      // return the object without sensitive keys
+      const json = APIRouter.sensitive.remove(serializedObject);
       return NextResponse.json(json);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
@@ -254,32 +304,64 @@ class APIRouter {
       });
       return items;
     },
-    create: () => {},
 
-    get: (id: string) => {
-      let items: (Readonly<SelectedPick<any, ["*"]>> | null)[] = []; // [items from different collections]
-      this.collectionMap.forEach(async (map) => {
-        // Load the base item, if not loaded yet
-        if (!items[map.fromCollection]) {
-          items[map.fromCollection] = await this.collections[
-            map.fromCollection
-          ].read(id);
-        }
-        // Load secondary items based on the above item
-        const collectionsToLoad = map.loadCollections.length;
-        for (let index = 0; index < collectionsToLoad; index++) {
-          const collectionIndex = map.loadCollections[index];
-          if (items[collectionIndex]) continue; // if it's already loaded, continue to the next collection
-          items[collectionIndex] = await this.collections[collectionIndex].read(
-            (items[map.fromCollection] as any)[map.usingKeys[index]]
-          );
-        }
+    /**
+     * The function inserts data across multiple xata data tables (collections) returning an array of components.
+     * There is an one-to-one correspondence between the components array and the collections array in the same order.
+     * @param data the data you want to be inserted into data tables.
+     * @returns a components array representing the rows inserted in the database.
+     */
+    create: async (data: object) => {
+      let components: Readonly<SelectedPick<any, ["*"]>>[] = [];
+      const { fromCollectionID, loadCollectionIDs, usingKeys } =
+        this.collectionMap;
+
+      // Make a shallow copy
+      let completeData = { ...data };
+
+      // Create the secondary components
+      loadCollectionIDs.forEach(async (collectionID, index) => {
+        components[collectionID] = await this.collections[collectionID].create(
+          data
+        );
+        (completeData as any)[usingKeys[index]] = components[collectionID];
       });
-      return items;
+
+      // Create the main component
+      components[fromCollectionID] = await this.collections[
+        fromCollectionID
+      ].create(completeData);
+
+      return components;
     },
 
-    update: () => {},
-    delete: () => {},
+    /**
+     * The function returns a single meaningful object spread across multiple database tables (collections),
+     * in the form of an array of components (distinct rows from different database tables).
+     * There is an one-to-one correspondence between the components array and the collections array in the same order.
+     * @param id the string identifier for the object
+     * @returns a components array representing an aggregation of multiple rows from data tables.
+     */
+    get: async (id: string) => {
+      let components: Readonly<SelectedPick<any, ["*"]>>[] = [];
+      const { fromCollectionID, loadCollectionIDs, usingKeys } =
+        this.collectionMap;
+
+      //Load the component from the main collection
+      components[fromCollectionID] = await this.collections[
+        fromCollectionID
+      ].readOrThrow(id);
+
+      //Load secondary components
+      loadCollectionIDs.forEach(async (collectionID, index) => {
+        components[collectionID] = await this.collections[
+          collectionID
+        ].readOrThrow((components[fromCollectionID] as any)[usingKeys[index]]);
+      });
+
+      // Return the components
+      return components;
+    },
   };
 
   // Some utility functions to hash and remove sensitive fields
@@ -319,13 +401,11 @@ const f = async () => {
   // How to set the options
   const options = {
     collections: [xata.db.Profiles, xata.db.Users],
-    collectionMap: [
-      {
-        fromCollection: 0,
-        loadCollections: [1],
-        usingKeys: ["user"],
-      },
-    ],
+    collectionMap: {
+      fromCollectionID: 0,
+      loadCollectionIDs: [1],
+      usingKeys: ["user"],
+    },
     validator: Validator.validate.userProfile,
     querystring: QueryString.getQuery.userProfile,
   };
