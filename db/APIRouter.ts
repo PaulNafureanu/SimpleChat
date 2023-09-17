@@ -94,15 +94,16 @@ class APIRouter {
       if (!page || page < 1) page = 1;
       if (!size || size < 1) size = 20;
 
-      // Get the items from the database collection
+      // Get the objects from the database
       const pagination = { size: size + 1, offset: (page - 1) * size };
-      let items: (Readonly<SelectedPick<any, ["*"]>> | null)[][] =
-        this.handleCollections.query(pagination);
+      // [object][components]
+      let components: Readonly<SelectedPick<any, ["*"]>>[][] =
+        await this.handleCollections.query(pagination);
 
       // Compute the hasPreviousPage, hasNextPage flags and size of the current page
       const hasPreviousPage = page - 1 > 0;
-      const hasNextPage = items.length > size;
-      const count = hasNextPage ? items.length - 1 : items.length;
+      const hasNextPage = components.length > size;
+      const count = hasNextPage ? components.length - 1 : components.length;
 
       // Define the URL for the previous page
       const prevQuery = { ...query, page: page - 1 };
@@ -110,34 +111,24 @@ class APIRouter {
         ? QueryString.getURL(prevQuery, cleanUrl)
         : null;
 
-      // Define the URI for the next page
+      // Define the URL for the next page
       const nextQuery = { ...query, page: page + 1 };
       const next = hasNextPage ? QueryString.getURL(nextQuery, cleanUrl) : null;
 
-      // Serialize items and return them
-      let results: JSONData<any>[] = [];
-      for (let itemIndex = 0; itemIndex < items[0].length; itemIndex) {
-        let serializedItems = [];
-        for (
-          let collectionIndex = 0;
-          collectionIndex < items.length;
-          collectionIndex++
-        ) {
-          let serializedItem =
-            items[collectionIndex][itemIndex]?.toSerializable() || null;
-          serializedItems.push(serializedItem);
-        }
+      // Serialize objects (component by component)
+      const serializedComponents = components.map((objectComponents) => {
+        const serializedObjectComponents = objectComponents.map((component) =>
+          component.toSerializable()
+        );
 
-        (results as any)[itemIndex] =
-          serializedItems.reduce((prev, curr) => {
-            let result = null;
-            if (prev && curr) result = { ...prev, curr };
-            else if (prev && !curr) result = { ...prev };
-            else if (!prev && curr) result = { ...curr };
-            return result;
-          }) || [];
-      }
+        // Combine the related components to form the serialized objects
+        return serializedObjectComponents.reduce((prev, curr) => {
+          return { ...prev, ...curr };
+        });
+      });
 
+      // Return the collection
+      let results: JSONData<any>[] = serializedComponents;
       const json = {
         count,
         hasPreviousPage,
@@ -276,33 +267,48 @@ class APIRouter {
 
   // Useful functions to handle the work with multiple collections
   private handleCollections = {
-    query: (pagination: object) => {
-      let items: (Readonly<SelectedPick<any, ["*"]>> | null)[][] = []; // [collection][item in collection]
-      this.collectionMap.forEach(async (map) => {
-        // First, let's load the base collection only if it's not loaded yet
-        if (!items[map.fromCollection]) {
-          items[map.fromCollection] = await this.collections[
-            map.fromCollection
-          ].getMany({ pagination });
+    query: async (pagination: object) => {
+      // [object][components]
+      let components: Readonly<SelectedPick<any, ["*"]>>[][] = [];
+      const { fromCollectionID, loadCollectionIDs, usingKeys } =
+        this.collectionMap;
+
+      // Load the components from the main collection
+      const mainComponents = await this.collections[fromCollectionID].getMany({
+        pagination,
+      });
+
+      // Load secondary components one by one for each main component,
+      // and group the related components together for an object.
+      let objectIndex = 0;
+      mainComponents.forEach(async (component) => {
+        // Groupt related components together in an array
+        let objectComponents: Readonly<SelectedPick<any, ["*"]>>[] = [];
+        objectComponents[fromCollectionID] = component;
+
+        // Load secondary components and insert them in the above array only if no one is null
+        let isNull = false;
+        for (let index = 0; index < loadCollectionIDs.length; index++) {
+          const collectionID = loadCollectionIDs[index];
+          const secondaryComponent = await this.collections[collectionID].read(
+            (component as any)[usingKeys[index]]
+          );
+          if (!secondaryComponent) {
+            isNull = true;
+            break;
+          } else {
+            objectComponents[collectionID] = secondaryComponent;
+          }
         }
 
-        //Now, let's load the secondary collections based on the first collection
-        items[map.fromCollection].forEach(async (item) => {
-          const collectionsToLoad = map.loadCollections.length;
-          for (let index = 0; index < collectionsToLoad; index++) {
-            let collectionIndex = map.loadCollections[index];
-            // If the collection is not yet loaded, create an empty array and load it
-            if (!items[collectionIndex]) items[collectionIndex] = [];
-            // Otherwise, push the items one by one
-            items[collectionIndex].push(
-              await this.collections[collectionIndex].read(
-                (item as any)[map.usingKeys[index]]
-              )
-            );
-          }
-        });
+        // If the null flag is not triggered, insert the components
+        if (!isNull) {
+          components[objectIndex] = objectComponents;
+          objectIndex++;
+        }
       });
-      return items;
+
+      return components;
     },
 
     /**
