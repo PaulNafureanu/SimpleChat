@@ -6,7 +6,7 @@ import {
 } from "@xata.io/client";
 import { getXataClient } from "@/db/xata";
 import HashGenerator from "@/lib/HashGenerator";
-import Validator, { ValidInput, ValidationResult } from "./Validator";
+import Validator, { ValidInput } from "./Validator";
 import { NextRequest, NextResponse } from "next/server";
 import QueryString, { BaseQueryString } from "./QueryString";
 const xata = getXataClient();
@@ -23,30 +23,33 @@ interface Collection<R> {
   results: JSONData<R>[];
 }
 
+interface NextContext {
+  params: { id: string };
+}
+
 /**
  * Options for APIRouter to determine the collection used and how to use it.
  * Note that the order of items in the collections array matters.
  * The collections should be ordered in the array based on the loading order
  * (first item being the first collection called (to load) from the xata database).
  */
-interface APIRouterOptions {
+export interface APIRouterOptions {
   collections: Repository<any & XataRecord>[];
   collectionMap: CollectionMap;
-  validator: (data: any) => ValidationResult;
+  validator: (data: any) => ValidInput[];
   querystring: (url: string) => Partial<BaseQueryString>;
 }
 /**
  * Collection relationship useful to determine the loading order and selective loading.
  * (A way to tell based on which collection, another collection should be loaded)
  */
-interface CollectionMap {
+export interface CollectionMap {
   fromCollectionID: number;
   loadCollectionIDs: number[];
   usingKeys: string[];
 }
 
-//TODO: Need support for multiple collections like UserProfile
-//TODO: Need Auth Module + permisions (admin, user) + authentication by permissions
+//TODO: Need Auth Module + permisions (admin, user) + authentication by permissions and TokenGenerator
 
 /**
  * APIRouter is an abstraction wrapper class over the xata database for getting,
@@ -72,6 +75,22 @@ class APIRouter {
     toRemove: ["password", "xata"],
   };
 
+  public static options = {
+    UserProfile: {
+      collections: [xata.db.Profiles, xata.db.Users],
+      collectionMap: {
+        fromCollectionID: 0,
+        loadCollectionIDs: [1],
+        usingKeys: ["user"],
+      },
+      validator: Validator.useValidator("userProfile"),
+      querystring: QueryString.getQuery.userProfile,
+    },
+    Category: {},
+    Conversation: {},
+    Message: {},
+  };
+
   private collections;
   private validator;
   private querystring;
@@ -83,7 +102,7 @@ class APIRouter {
     this.collectionMap = options.collectionMap;
   }
 
-  public query = async (request: NextRequest) => {
+  public query = async (request: NextRequest, context: NextContext) => {
     try {
       const { url } = request; // full url
       const cleanUrl = url.split("?")[0]; // url without search queries params
@@ -123,13 +142,15 @@ class APIRouter {
 
         // Combine the related components to form the serialized objects
         return serializedObjectComponents.reduce((prev, curr) => {
-          return { ...prev, ...curr };
+          return { ...curr, ...prev };
         });
       });
 
-      // Return the collection
-      let results: JSONData<any>[] = serializedComponents;
-      const json = {
+      // Return the collection without sensitive data
+      let results: JSONData<any>[] = serializedComponents.map((component) =>
+        APIRouter.sensitive.remove(component)
+      );
+      return {
         count,
         hasPreviousPage,
         hasNextPage,
@@ -137,42 +158,48 @@ class APIRouter {
         next,
         results,
       } as Collection<any>;
-      return NextResponse.json(json);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
     }
   };
 
-  public create = async (data: any) => {
+  // TODO: There is some error is create function
+  public create = async (request: NextRequest, context: NextContext) => {
     try {
+      // Unpack data from the request
+      const data = await request.json();
+
       // Validate the user input
-      const { error, value: validInput } = this.validator(data);
-      if (error) throw error;
+      const values = this.validator(data);
 
       // Hash sensitive fields before inserting them into the xata database
-      const value = await APIRouter.sensitive.hash(validInput);
+      for (let index = 0; index < values.length; index++) {
+        values[index] = await APIRouter.sensitive.hash(values[index]);
+      }
 
-      // Create the our object component by component
-      const components = await this.handleCollections.create(value);
+      // Create the object, component by component
+      const components = await this.handleCollections.create(values);
 
       // Serialize and combine the serialized components
       const serializedComponents = components.map((component) =>
         component.toSerializable()
       );
       const serializedObject = serializedComponents.reduce((prev, curr) => {
-        return { ...prev, ...curr };
+        return { ...curr, ...prev };
       });
 
       // return the object without sensitive keys
-      const json = APIRouter.sensitive.remove(serializedObject);
-      return NextResponse.json(json);
+      return APIRouter.sensitive.remove(serializedObject);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
     }
   };
 
-  public get = async (id: string) => {
+  public get = async (request: NextRequest, context: NextContext) => {
     try {
+      // Unpack data from the request
+      const { id } = context.params;
+
       // Get the components of our object
       const components = await this.handleCollections.get(id);
 
@@ -181,25 +208,29 @@ class APIRouter {
         component.toSerializable()
       );
       const serializedObject = serializedComponents.reduce((prev, curr) => {
-        return { ...prev, ...curr };
+        return { ...curr, ...prev };
       });
 
       // return the object without sensitive keys
-      const json = APIRouter.sensitive.remove(serializedObject);
-      return NextResponse.json(json);
+      return APIRouter.sensitive.remove(serializedObject);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
     }
   };
 
-  public update = async (id: string, data: any) => {
+  public update = async (request: NextRequest, context: NextContext) => {
     try {
+      // Unpack data from the request
+      const data = await request.json();
+      const { id } = context.params;
+
       // Validate the user input
-      const { error, value: validInput } = this.validator(data);
-      if (error) throw error;
+      const values = this.validator(data);
 
       // Hash sensitive fields before inserting them into the xata database
-      const value = await APIRouter.sensitive.hash(validInput);
+      for (let index = 0; index < values.length; index++) {
+        values[index] = await APIRouter.sensitive.hash(values[index]);
+      }
 
       // Make a copy of our object
       const components = await this.handleCollections.get(id);
@@ -211,36 +242,44 @@ class APIRouter {
 
       // Update the key value pair of the components keeping track of which components got updated
       const trackerIDs = [];
-      for (let key in value) {
-        for (let index = 0; index < serializedComponents.length; index++) {
-          if (key in serializedComponents[index]) {
-            serializedComponents[index] = (value as any)[key];
-            trackerIDs.push(index);
+      for (let key in data) {
+        for (
+          let collectionID = 0;
+          collectionID < serializedComponents.length;
+          collectionID++
+        ) {
+          if (key in serializedComponents[collectionID]) {
+            serializedComponents[collectionID] = (data as any)[key];
+            trackerIDs.push(collectionID);
             break;
           }
         }
       }
 
       // Update the object component by component using the tracker
-      trackerIDs.forEach(async (id) => {
-        await this.collections[id].updateOrThrow(serializedComponents[id]);
+      trackerIDs.forEach(async (collectionID) => {
+        await this.collections[collectionID].updateOrThrow(
+          serializedComponents[collectionID]
+        );
       });
 
       // Combine the updated components
       const serializedObject = serializedComponents.reduce((prev, curr) => {
-        return { ...prev, ...curr };
+        return { ...curr, ...prev };
       });
 
       // return the object without sensitive keys
-      const json = APIRouter.sensitive.remove(serializedObject);
-      return NextResponse.json(json);
+      return APIRouter.sensitive.remove(serializedObject);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
     }
   };
 
-  public delete = async (id: string) => {
+  public delete = async (request: NextRequest, context: NextContext) => {
     try {
+      // Unpack data from the request
+      const { id } = context.params;
+
       // Make a copy of our object
       const components = await this.handleCollections.get(id);
 
@@ -254,12 +293,11 @@ class APIRouter {
         component.toSerializable()
       );
       const serializedObject = serializedComponents.reduce((prev, curr) => {
-        return { ...prev, ...curr };
+        return { ...curr, ...prev };
       });
 
       // return the object without sensitive keys
-      const json = APIRouter.sensitive.remove(serializedObject);
-      return NextResponse.json(json);
+      return APIRouter.sensitive.remove(serializedObject);
     } catch (error) {
       return APIRouter.handleErrors(error as Error);
     }
@@ -281,7 +319,13 @@ class APIRouter {
       // Load secondary components one by one for each main component,
       // and group the related components together for an object.
       let objectIndex = 0;
-      mainComponents.forEach(async (component) => {
+      for (
+        let componentIndex = 0;
+        componentIndex < mainComponents.length;
+        componentIndex++
+      ) {
+        const component = mainComponents[componentIndex];
+
         // Groupt related components together in an array
         let objectComponents: Readonly<SelectedPick<any, ["*"]>>[] = [];
         objectComponents[fromCollectionID] = component;
@@ -306,30 +350,30 @@ class APIRouter {
           components[objectIndex] = objectComponents;
           objectIndex++;
         }
-      });
-
+      }
       return components;
     },
 
     /**
      * The function inserts data across multiple xata data tables (collections) returning an array of components.
      * There is an one-to-one correspondence between the components array and the collections array in the same order.
-     * @param data the data you want to be inserted into data tables.
+     * @param values the data you want to be inserted into data tables.
      * @returns a components array representing the rows inserted in the database.
      */
-    create: async (data: object) => {
+    create: async (values: ValidInput[]) => {
       let components: Readonly<SelectedPick<any, ["*"]>>[] = [];
       const { fromCollectionID, loadCollectionIDs, usingKeys } =
         this.collectionMap;
 
-      // Make a shallow copy
-      let completeData = { ...data };
+      // Store the values for the main component to be created
+      let completeData = { ...values[fromCollectionID] };
 
       // Create the secondary components
       loadCollectionIDs.forEach(async (collectionID, index) => {
         components[collectionID] = await this.collections[collectionID].create(
-          data
+          values[collectionID]
         );
+        // Add secondary components to the build of the main component
         (completeData as any)[usingKeys[index]] = components[collectionID];
       });
 
@@ -370,6 +414,24 @@ class APIRouter {
     },
   };
 
+  public readonly useNext = (
+    method: "query" | "create" | "get" | "update" | "delete"
+  ) => {
+    const funct = this[method];
+    return async (request: NextRequest, context: NextContext) => {
+      try {
+        const json = await funct(request, context);
+        return NextResponse.json(json);
+      } catch (error) {
+        if (error instanceof Validator.Error)
+          return NextResponse.json(Validator.handleError(error), {
+            status: 400,
+          });
+        return NextResponse.json((error as Error).message, { status: 500 });
+      }
+    };
+  };
+
   // Some utility functions to hash and remove sensitive fields
   private static sensitive = {
     // Hash sensitive field values before inserting them into xata database
@@ -395,37 +457,26 @@ class APIRouter {
 
   // functions for handling errors
   private static handleErrors = (error: Error) => {
-    if (error instanceof Validator.Error)
-      return NextResponse.json(Validator.handleError(error), { status: 400 });
-    return NextResponse.json((error as Error).message, { status: 500 });
+    if (error instanceof Validator.Error) return Validator.handleError(error);
+    return (error as Error).message;
   };
 }
 
 export default APIRouter;
 
 const f = async () => {
-  // How to set the options
-  const options = {
-    collections: [xata.db.Profiles, xata.db.Users],
-    collectionMap: {
-      fromCollectionID: 0,
-      loadCollectionIDs: [1],
-      usingKeys: ["user"],
-    },
-    validator: Validator.validate.userProfile,
-    querystring: QueryString.getQuery.userProfile,
-  };
-
   // Create an instance of APIRouter outside of any route handler functions
-  const route = new APIRouter(options);
+  const route = new APIRouter(APIRouter.options.UserProfile);
 
+  // Let's assume the request is received:
+  const request = new NextRequest("");
+  const context = { params: { id: "" } };
   // Define the responses for each route hander (returns NextResponse)
-  const queryResponse = route.query(new NextRequest(""));
-  const createResponse = route.create({});
-  const getResponse = route.get("");
-  const updateResponse = route.update("", {});
-  const deleteResponse = route.delete("");
+  const queryResponse = route.query(request, context);
+  const createResponse = route.create(request, context);
+  const getResponse = route.get(request, context);
+  const updateResponse = route.update(request, context);
+  const deleteResponse = route.delete(request, context);
 
-  const user = await xata.db.Users.readOrThrow("");
-  const userS = user.toSerializable();
+  const queryNextResponse = route.useNext("query")(request, context);
 };
