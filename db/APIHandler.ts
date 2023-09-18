@@ -36,7 +36,7 @@ interface NextContext {
 export interface APIRouterOptions {
   collections: Repository<any & XataRecord>[];
   collectionMap: CollectionMap;
-  validator: (data: any) => ValidInput[];
+  validator: (data: any, update?: boolean) => ValidInput[];
   querystring: (url: string) => Partial<BaseQueryString>;
 }
 /**
@@ -180,9 +180,7 @@ class APIHandler {
       // Hash sensitive fields before inserting them into the xata database
       for (let index = 0; index < values.length; index++) {
         values[index] = await APIHandler.sensitive.hash(values[index]);
-        console.log("VB: ", values);
       }
-      console.log("VA: ", values);
 
       // Create the object, component by component
       const components = await this.handleCollections.create(values);
@@ -225,7 +223,7 @@ class APIHandler {
   public update = async (id: string, data: any) => {
     try {
       // Validate the user input
-      const values = this.validator(data);
+      const values = this.validator(data, true);
 
       // Hash sensitive fields before inserting them into the xata database
       for (let index = 0; index < values.length; index++) {

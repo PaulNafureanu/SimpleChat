@@ -44,72 +44,83 @@ export type ValidationResult<
 class Validator {
   private static options = { abortEarly: false };
   private static NotAllowed = /^[^;,'"`*=/]*$/;
-  private static ValidationRules = {
-    Users: {
-      email: Joi.string().email().pattern(Validator.NotAllowed).required(),
-      password: Joi.string()
-        .pattern(Validator.NotAllowed)
-        .min(5)
-        .max(30)
-        .required(),
-    },
-    Profiles: {
-      username: Joi.string().pattern(Validator.NotAllowed).max(30).optional(),
-      first_name: Joi.string().pattern(Validator.NotAllowed).max(30).optional(),
-      last_name: Joi.string().pattern(Validator.NotAllowed).max(30).optional(),
-      gender: Joi.string().alphanum().max(16).optional(),
-      birthday: Joi.string().isoDate().max(30).optional(),
-      categories: Joi.array<string>().unique().optional(),
-    },
-    Chats: {
-      profiles: Joi.array<string>().unique().min(1).required(),
-      messages: Joi.array<string>().unique().optional(),
-    },
-    Conversations: {
-      label: Joi.string().alphanum().max(30).required(),
-    },
-    Messages: {
-      from: Joi.string().required(),
-      to: Joi.string().required(),
-      text: Joi.string().required(),
-      delivered: Joi.string().isoDate().max(30).required(),
-    },
-    Categories: {
-      conversations: Joi.array<string>().unique().min(1).required(),
-      label: Joi.string().alphanum().max(30).required(),
-    },
+  private static ValidationRules = (update: boolean = false) => {
+    let field: "required" | "optional" = !update ? "required" : "optional";
+    return {
+      Users: {
+        email: Joi.string().email().pattern(Validator.NotAllowed)[field](),
+        password: Joi.string()
+          .pattern(Validator.NotAllowed)
+          .min(5)
+          .max(30)
+          [field](),
+      },
+      Profiles: {
+        username: Joi.string().pattern(Validator.NotAllowed).max(30).optional(),
+        first_name: Joi.string()
+          .pattern(Validator.NotAllowed)
+          .max(30)
+          .optional(),
+        last_name: Joi.string()
+          .pattern(Validator.NotAllowed)
+          .max(30)
+          .optional(),
+        gender: Joi.string().alphanum().max(16).optional(),
+        birthday: Joi.string().isoDate().max(30).optional(),
+        categories: Joi.array<string>().unique().optional(),
+      },
+      Chats: {
+        profiles: Joi.array<string>().unique().min(1)[field](),
+        messages: Joi.array<string>().unique().optional(),
+      },
+      Conversations: {
+        label: Joi.string().alphanum().max(30)[field](),
+      },
+      Messages: {
+        from: Joi.string()[field](),
+        to: Joi.string()[field](),
+        text: Joi.string()[field](),
+        delivered: Joi.string().isoDate().max(30)[field](),
+      },
+      Categories: {
+        conversations: Joi.array<string>().unique().min(1)[field](),
+        label: Joi.string().alphanum().max(30)[field](),
+      },
+    };
   };
 
-  private static Schema = {
-    UserProfile: Joi.object<ValidUserProfile>({
-      ...Validator.ValidationRules.Users,
-      ...Validator.ValidationRules.Profiles,
-    }),
-    Category: Joi.object<ValidCategory>({
-      ...Validator.ValidationRules.Categories,
-    }),
-    Conversation: Joi.object<ValidConversation>({
-      ...Validator.ValidationRules.Chats,
-      ...Validator.ValidationRules.Conversations,
-    }),
-    Message: Joi.object<ValidMessage>({
-      ...Validator.ValidationRules.Messages,
-    }),
+  private static Schema = (update: boolean = false) => {
+    return {
+      UserProfile: Joi.object<ValidUserProfile>({
+        ...Validator.ValidationRules(update).Users,
+        ...Validator.ValidationRules(update).Profiles,
+      }),
+      Category: Joi.object<ValidCategory>({
+        ...Validator.ValidationRules(update).Categories,
+      }),
+      Conversation: Joi.object<ValidConversation>({
+        ...Validator.ValidationRules(update).Chats,
+        ...Validator.ValidationRules(update).Conversations,
+      }),
+      Message: Joi.object<ValidMessage>({
+        ...Validator.ValidationRules(update).Messages,
+      }),
+    };
   };
 
   private static Keys = {
-    Users: Object.keys(Validator.ValidationRules.Users),
-    Profiles: Object.keys(Validator.ValidationRules.Profiles),
-    Chats: Object.keys(Validator.ValidationRules.Chats),
-    Conversations: Object.keys(Validator.ValidationRules.Conversations),
-    Messages: Object.keys(Validator.ValidationRules.Messages),
-    Categories: Object.keys(Validator.ValidationRules.Categories),
+    Users: Object.keys(Validator.ValidationRules().Users),
+    Profiles: Object.keys(Validator.ValidationRules().Profiles),
+    Chats: Object.keys(Validator.ValidationRules().Chats),
+    Conversations: Object.keys(Validator.ValidationRules().Conversations),
+    Messages: Object.keys(Validator.ValidationRules().Messages),
+    Categories: Object.keys(Validator.ValidationRules().Categories),
   };
 
   // Segregate the valid input into specific database object using validation rules
   private static segregate = (
     value: ValidInput,
-    rules: (keyof typeof Validator.ValidationRules)[]
+    rules: (keyof ReturnType<typeof Validator.ValidationRules>)[]
   ): ValidInput[] => {
     let arr: any[] = [];
     for (let key in value) {
@@ -123,24 +134,24 @@ class Validator {
     return arr;
   };
 
-  static readonly validate = {
-    userProfile: (data: any) =>
-      Validator.Schema.UserProfile.validate(data, Validator.options),
-    category: (data: any) =>
-      Validator.Schema.Category.validate(data, Validator.options),
-    conversation: (data: any) =>
-      Validator.Schema.Conversation.validate(data, Validator.options),
-    message: (data: any) =>
-      Validator.Schema.Message.validate(data, Validator.options),
+  static readonly validate = (update: boolean = false) => {
+    return {
+      userProfile: (data: any) =>
+        Validator.Schema(update).UserProfile.validate(data, Validator.options),
+      category: (data: any) =>
+        Validator.Schema(update).Category.validate(data, Validator.options),
+      conversation: (data: any) =>
+        Validator.Schema(update).Conversation.validate(data, Validator.options),
+      message: (data: any) =>
+        Validator.Schema(update).Message.validate(data, Validator.options),
+    };
   };
 
   // A simple wrapper function around validate for additional operations like segregation of data.
   static readonly useValidator = (
-    useValidationFunction: keyof typeof Validator.validate,
-    rules: (keyof typeof Validator.ValidationRules)[] = []
+    useValidationFunction: keyof ReturnType<typeof Validator.validate>,
+    rules: (keyof ReturnType<typeof Validator.ValidationRules>)[] = []
   ) => {
-    const funct = Validator.validate[useValidationFunction];
-
     // Set the rules used for segregation
     if (rules.length === 0) {
       switch (useValidationFunction) {
@@ -164,7 +175,8 @@ class Validator {
     }
 
     // Return a higher order function (a wrapper around the validate function)
-    return (data: any) => {
+    return (data: any, update: boolean = false) => {
+      const funct = Validator.validate(update)[useValidationFunction];
       const { error, value } = funct(data);
       if (error) throw error;
       return Validator.segregate(value, rules);
