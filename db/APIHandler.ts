@@ -73,7 +73,7 @@ export interface CollectionMap {
 class APIHandler {
   private static SensitiveFields = {
     toHash: ["password"],
-    toRemove: ["password", "xata"],
+    toRemove: ["password", "user", "xata"],
   };
 
   private static methods = [
@@ -239,7 +239,7 @@ class APIHandler {
       );
 
       // Update the key value pair of the components keeping track of which components got updated
-      const trackerIDs = [];
+      const collectionsToUpdate = [];
       for (let key in data) {
         for (
           let collectionID = 0;
@@ -247,23 +247,21 @@ class APIHandler {
           collectionID++
         ) {
           if (key in serializedComponents[collectionID]) {
-            serializedComponents[collectionID] = (data as any)[key];
-            trackerIDs.push(collectionID);
+            serializedComponents[collectionID][key] = (data as any)[key];
+            collectionsToUpdate.push(collectionID);
             break;
           }
         }
       }
 
       // Update the object component by component using the tracker
-      for (
-        let collectionID = 0;
-        collectionID < trackerIDs.length;
-        collectionID++
-      ) {
+      for (let index = 0; index < collectionsToUpdate.length; index++) {
+        const collectionID = collectionsToUpdate[index];
         await this.collections[collectionID].updateOrThrow(
           serializedComponents[collectionID]
         );
       }
+      console.log("SA: ", serializedComponents);
 
       // Combine the updated components
       const serializedObject = serializedComponents.reduce((prev, curr) => {
@@ -474,13 +472,19 @@ class APIHandler {
       return validInput;
     },
 
-    // Remote sensitive field values before returing them to the client
+    // Remote sensitive and null field values before returing them to the client
     remove: (serializedItem: JSONData<any>) => {
       const fields = APIHandler.SensitiveFields.toRemove;
       for (let index = 0; index < fields.length; index++) {
         const field = fields[index];
         delete serializedItem[field];
       }
+
+      // delete falsy values
+      for (let key in serializedItem) {
+        if (!serializedItem[key]) delete serializedItem[key];
+      }
+
       return serializedItem;
     },
   };
