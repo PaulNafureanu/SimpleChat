@@ -1,22 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import Validator from "@/db/Validator";
-import UserProfile from "@/db/UserProfile";
-import TokenGenerator from "@/lib/TokenGenerator";
-// import QueryString from "@/lib/QueryString";
-import Auth from "@/lib/Auth";
-import APIRouter, { APIRouterOptions } from "@/db/APIRouter";
+import { NextRequest } from "next/server";
+import APIHandler from "@/db/APIHandler";
 
-import { getXataClient } from "@/db/xata";
-import QueryString from "@/db/QueryString";
-const xata = getXataClient();
-
-const route = new APIRouter(APIRouter.options.UserProfile);
+// Define route handler
+const route = new APIHandler(APIHandler.options.UserProfile);
 
 // Protected route: get all profiles
 export async function GET(request: NextRequest, context: any) {
   return await route.useNext("query")(request, context);
 }
 
+// Public route: create a profile
 export async function POST(request: NextRequest, context: any) {
   return await route.useNext("create")(request, context);
 }

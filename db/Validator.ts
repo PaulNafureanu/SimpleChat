@@ -142,7 +142,7 @@ class Validator {
     const funct = Validator.validate[useValidationFunction];
 
     // Set the rules used for segregation
-    if (!rules) {
+    if (rules.length === 0) {
       switch (useValidationFunction) {
         case "userProfile": {
           rules = ["Profiles", "Users"];

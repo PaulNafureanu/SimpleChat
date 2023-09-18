@@ -49,10 +49,11 @@ export interface CollectionMap {
   usingKeys: string[];
 }
 
-//TODO: Need Auth Module + permisions (admin, user) + authentication by permissions and TokenGenerator
+// TODO: Revert/undo in case of an error
+// TODO: Need Auth Module + permisions (admin, user) + authentication by permissions and TokenGenerator
 
 /**
- * APIRouter is an abstraction wrapper class over the xata database for getting,
+ * APIHandler is an abstraction wrapper class over the xata database for getting,
  * creating, updating and deleting items in a database table.
  *
  * It automatically maps the database operations onto the REST API routes, as follows:
@@ -69,11 +70,19 @@ export interface CollectionMap {
  * 5. DELETE (delete method) - delete an item in a collection.
  *
  */
-class APIRouter {
+class APIHandler {
   private static SensitiveFields = {
     toHash: ["password"],
     toRemove: ["password", "xata"],
   };
+
+  private static methods = [
+    "query",
+    "create",
+    "get",
+    "update",
+    "delete",
+  ] as const;
 
   public static options = {
     UserProfile: {
@@ -102,10 +111,10 @@ class APIRouter {
     this.collectionMap = options.collectionMap;
   }
 
-  public query = async (request: NextRequest, context: NextContext) => {
+  public query = async (url: string) => {
     try {
-      const { url } = request; // full url
-      const cleanUrl = url.split("?")[0]; // url without search queries params
+      // url without search queries params
+      const cleanUrl = url.split("?")[0];
 
       // Define the search query params
       const query = this.querystring(url);
@@ -148,7 +157,7 @@ class APIRouter {
 
       // Return the collection without sensitive data
       let results: JSONData<any>[] = serializedComponents.map((component) =>
-        APIRouter.sensitive.remove(component)
+        APIHandler.sensitive.remove(component)
       );
       return {
         count,
@@ -159,23 +168,21 @@ class APIRouter {
         results,
       } as Collection<any>;
     } catch (error) {
-      return APIRouter.handleErrors(error as Error);
+      return APIHandler.handleErrors(error as Error);
     }
   };
 
-  // TODO: There is some error is create function
-  public create = async (request: NextRequest, context: NextContext) => {
+  public create = async (data: any) => {
     try {
-      // Unpack data from the request
-      const data = await request.json();
-
       // Validate the user input
       const values = this.validator(data);
 
       // Hash sensitive fields before inserting them into the xata database
       for (let index = 0; index < values.length; index++) {
-        values[index] = await APIRouter.sensitive.hash(values[index]);
+        values[index] = await APIHandler.sensitive.hash(values[index]);
+        console.log("VB: ", values);
       }
+      console.log("VA: ", values);
 
       // Create the object, component by component
       const components = await this.handleCollections.create(values);
@@ -189,17 +196,14 @@ class APIRouter {
       });
 
       // return the object without sensitive keys
-      return APIRouter.sensitive.remove(serializedObject);
+      return APIHandler.sensitive.remove(serializedObject);
     } catch (error) {
-      return APIRouter.handleErrors(error as Error);
+      return APIHandler.handleErrors(error as Error);
     }
   };
 
-  public get = async (request: NextRequest, context: NextContext) => {
+  public get = async (id: string) => {
     try {
-      // Unpack data from the request
-      const { id } = context.params;
-
       // Get the components of our object
       const components = await this.handleCollections.get(id);
 
@@ -212,24 +216,20 @@ class APIRouter {
       });
 
       // return the object without sensitive keys
-      return APIRouter.sensitive.remove(serializedObject);
+      return APIHandler.sensitive.remove(serializedObject);
     } catch (error) {
-      return APIRouter.handleErrors(error as Error);
+      return APIHandler.handleErrors(error as Error);
     }
   };
 
-  public update = async (request: NextRequest, context: NextContext) => {
+  public update = async (id: string, data: any) => {
     try {
-      // Unpack data from the request
-      const data = await request.json();
-      const { id } = context.params;
-
       // Validate the user input
       const values = this.validator(data);
 
       // Hash sensitive fields before inserting them into the xata database
       for (let index = 0; index < values.length; index++) {
-        values[index] = await APIRouter.sensitive.hash(values[index]);
+        values[index] = await APIHandler.sensitive.hash(values[index]);
       }
 
       // Make a copy of our object
@@ -257,11 +257,15 @@ class APIRouter {
       }
 
       // Update the object component by component using the tracker
-      trackerIDs.forEach(async (collectionID) => {
+      for (
+        let collectionID = 0;
+        collectionID < trackerIDs.length;
+        collectionID++
+      ) {
         await this.collections[collectionID].updateOrThrow(
           serializedComponents[collectionID]
         );
-      });
+      }
 
       // Combine the updated components
       const serializedObject = serializedComponents.reduce((prev, curr) => {
@@ -269,24 +273,21 @@ class APIRouter {
       });
 
       // return the object without sensitive keys
-      return APIRouter.sensitive.remove(serializedObject);
+      return APIHandler.sensitive.remove(serializedObject);
     } catch (error) {
-      return APIRouter.handleErrors(error as Error);
+      return APIHandler.handleErrors(error as Error);
     }
   };
 
-  public delete = async (request: NextRequest, context: NextContext) => {
+  public delete = async (id: string) => {
     try {
-      // Unpack data from the request
-      const { id } = context.params;
-
       // Make a copy of our object
       const components = await this.handleCollections.get(id);
 
       // Delete the object component by component:
-      this.collections.forEach(async (collection, index) => {
-        await collection.deleteOrThrow(components[index]);
-      });
+      for (let index = 0; index < this.collections.length; index++) {
+        await this.collections[index].deleteOrThrow(components[index]);
+      }
 
       // Serialize and combine the serialized components
       const serializedComponents = components.map((component) =>
@@ -297,9 +298,9 @@ class APIRouter {
       });
 
       // return the object without sensitive keys
-      return APIRouter.sensitive.remove(serializedObject);
+      return APIHandler.sensitive.remove(serializedObject);
     } catch (error) {
-      return APIRouter.handleErrors(error as Error);
+      return APIHandler.handleErrors(error as Error);
     }
   };
 
@@ -369,13 +370,14 @@ class APIRouter {
       let completeData = { ...values[fromCollectionID] };
 
       // Create the secondary components
-      loadCollectionIDs.forEach(async (collectionID, index) => {
+      for (let index = 0; index < loadCollectionIDs.length; index++) {
+        const collectionID = loadCollectionIDs[index];
         components[collectionID] = await this.collections[collectionID].create(
           values[collectionID]
         );
         // Add secondary components to the build of the main component
         (completeData as any)[usingKeys[index]] = components[collectionID];
-      });
+      }
 
       // Create the main component
       components[fromCollectionID] = await this.collections[
@@ -403,24 +405,50 @@ class APIRouter {
       ].readOrThrow(id);
 
       //Load secondary components
-      loadCollectionIDs.forEach(async (collectionID, index) => {
+      for (let index = 0; index < loadCollectionIDs.length; index++) {
+        const collectionID = loadCollectionIDs[index];
         components[collectionID] = await this.collections[
           collectionID
         ].readOrThrow((components[fromCollectionID] as any)[usingKeys[index]]);
-      });
+      }
 
       // Return the components
       return components;
     },
   };
 
-  public readonly useNext = (
-    method: "query" | "create" | "get" | "update" | "delete"
-  ) => {
-    const funct = this[method];
+  public readonly useNext = (method: (typeof APIHandler.methods)[number]) => {
     return async (request: NextRequest, context: NextContext) => {
       try {
-        const json = await funct(request, context);
+        let funct;
+        const url = request?.url;
+        const id = context?.params?.id;
+        switch (method) {
+          case "query": {
+            funct = async () => await this.query(url);
+            break;
+          }
+          case "create": {
+            const data = await request.json();
+            funct = async () => await this.create(data);
+            break;
+          }
+          case "get": {
+            funct = async () => await this.get(id);
+            break;
+          }
+          case "update": {
+            const data = await request.json();
+            funct = async () => await this.update(id, data);
+            break;
+          }
+          case "delete": {
+            funct = async () => await this.delete(id);
+            break;
+          }
+        }
+
+        const json = await funct();
         return NextResponse.json(json);
       } catch (error) {
         if (error instanceof Validator.Error)
@@ -436,21 +464,25 @@ class APIRouter {
   private static sensitive = {
     // Hash sensitive field values before inserting them into xata database
     hash: async <T extends Partial<ValidInput>>(validInput: T) => {
-      APIRouter.SensitiveFields.toHash.forEach(async (field) => {
+      const fields = APIHandler.SensitiveFields.toHash;
+      for (let index = 0; index < fields.length; index++) {
+        const field = fields[index];
         let fieldValue = (validInput as any)[field] as string | undefined;
         if (fieldValue) {
           const hashedFieldValue = await HashGenerator.hash(fieldValue);
           (validInput as any)[field] = hashedFieldValue;
         }
-      });
+      }
       return validInput;
     },
 
     // Remote sensitive field values before returing them to the client
     remove: (serializedItem: JSONData<any>) => {
-      APIRouter.SensitiveFields.toRemove.forEach((field) => {
+      const fields = APIHandler.SensitiveFields.toRemove;
+      for (let index = 0; index < fields.length; index++) {
+        const field = fields[index];
         delete serializedItem[field];
-      });
+      }
       return serializedItem;
     },
   };
@@ -462,21 +494,4 @@ class APIRouter {
   };
 }
 
-export default APIRouter;
-
-const f = async () => {
-  // Create an instance of APIRouter outside of any route handler functions
-  const route = new APIRouter(APIRouter.options.UserProfile);
-
-  // Let's assume the request is received:
-  const request = new NextRequest("");
-  const context = { params: { id: "" } };
-  // Define the responses for each route hander (returns NextResponse)
-  const queryResponse = route.query(request, context);
-  const createResponse = route.create(request, context);
-  const getResponse = route.get(request, context);
-  const updateResponse = route.update(request, context);
-  const deleteResponse = route.delete(request, context);
-
-  const queryNextResponse = route.useNext("query")(request, context);
-};
+export default APIHandler;
