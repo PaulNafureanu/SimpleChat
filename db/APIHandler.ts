@@ -14,7 +14,7 @@ const xata = getXataClient();
 /**
  * The return type of a query operation resulting in serialized objects.
  */
-interface Collection<R> {
+interface ResultGroup<R> {
   count: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
@@ -34,11 +34,14 @@ interface NextContext {
  * (first item being the first collection called (to load) from the xata database).
  */
 export interface APIRouterOptions {
-  collections: Repository<any & XataRecord>[];
+  collections: Collection[];
   collectionMap: CollectionMap;
   validator: (data: any, update?: boolean) => ValidInput[];
   querystring: (url: string) => Partial<BaseQueryString>;
 }
+
+export type Collection = Repository<any & XataRecord>;
+
 /**
  * Collection relationship useful to determine the loading order and selective loading.
  * (A way to tell based on which collection, another collection should be loaded)
@@ -166,7 +169,7 @@ class APIHandler {
         previous,
         next,
         results,
-      } as Collection<any>;
+      } as ResultGroup<any>;
     } catch (error) {
       return APIHandler.handleErrors(error as Error);
     }
