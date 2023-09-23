@@ -22,7 +22,7 @@ interface GetOperation {
 }
 interface UpdateOperation {
   type: "update";
-  data: object;
+  data: { id: string; values: any[] };
   config?: OperationConfig;
 }
 interface DeleteOperation {
@@ -73,7 +73,7 @@ class Transaction {
     /**
      * Verifies if the returned components values from the db are identical with the validated values from the client.
      * Useful for the create method that has to raise an error if isValid flag returns false.
-     * @param args the components and values array as well as the collection id to be verified.
+     * @param args the components (to check) and values (new values) array as well as the collection id to be verified.
      * @returns true (valid) if the value-keys coincide and false (invalid) otherwise via isValid flag
      */
     byKeys: (args: {
@@ -112,7 +112,7 @@ class Transaction {
    * each object in the form of an array of components (distinct rows from different database tables).
    * There is an one-to-one correspondence between the components array and the collections array in the same order.
    * There is no revert back operation to be performed on the database within the method.
-   * @param operation contains the options and the configuration on how the objects should be read and from where.
+   * @param operation contains the options and the configuration on how reading should work.
    * @returns a 2D matrix [object][components] representing an aggregation of multiple rows from data tables forming an array of objects, otherwise a simple empty array.
    */
   private query = async (
@@ -177,8 +177,8 @@ class Transaction {
    * The function creates a single meaningful object spread across multiple database tables (collections) and
    * return the object in the form of an array of components (distinct rows from different database tables).
    * There is an one-to-one correspondence between the components array and the collections array in the same order.
-   * There is a revert back operation to be performed on the database within the method.
-   * @param operation contains the values for the new object and the configuration on how to be created and where.
+   * There is a revert back operation to be performed on the database within the method in case of error.
+   * @param operation contains the values and the configuration on how creation on a new object should work.
    * @returns a components array representing an aggregation of multiple rows from data tables, otherwise throws error.
    */
   private create = async (
@@ -222,7 +222,7 @@ class Transaction {
       const verifyMain = { components, values, collectionID: fromCollectionID };
       const { isValid, key } = Transaction.verify.byKeys(verifyMain);
       if (!isValid) {
-        const errorMsg = `Error at creating a new object. The values for the key ${key} does not coincide.`;
+        const errorMsg = `Error at creating a new object. The values for the key ${key} does not coincide after creation.`;
         throw new Error(errorMsg);
       }
 
@@ -249,7 +249,7 @@ class Transaction {
    * in the form of an array of components (distinct rows from different database tables).
    * There is an one-to-one correspondence between the components array and the collections array in the same order.
    * There is no revert back operation to be performed on the database within the method.
-   * @param operation contains the string id for the object and the configuration on how to be read and from where.
+   * @param operation contains the string id and the configuration on how reading should work.
    * @returns a components array representing an aggregation of multiple rows from data tables, otherwise empty array.
    */
   private get = async (
@@ -282,16 +282,92 @@ class Transaction {
     }
   };
 
-  private update = (
+  /**
+   * The function updates a single meaningful object spread across multiple database tables (collections) and
+   * return the updated object in the form of an array of components (distinct rows from different database tables).
+   * There is an one-to-one correspondence between the components array and the collections array in the same order.
+   * There is a revert back operation to be performed on the database within the method in case of error.
+   * @param operation contains the string id, the new values and the configuration on how the update should work.
+   * @returns a components array representing an aggregation of multiple rows from data tables, otherwise throws error.
+   */
+  private update = async (
     operation: UpdateOperation & { config: OperationConfig }
-  ) => {};
+  ) => {
+    // Prepare data
+    const { id, values } = operation.data;
+    const { collections } = operation.config;
+    let components: Readonly<SelectedPick<any, ["*"]>>[] = [];
+    let updatedComponents: Readonly<SelectedPick<any, ["*"]>>[] = [];
+
+    try {
+      // Get the components of the object
+      components = await this.get({
+        type: "get",
+        data: { id },
+        config: operation.config,
+      });
+
+      // Update the object, component by component
+      for (
+        let collectionID = 0;
+        collectionID < collections.length;
+        collectionID++
+      ) {
+        // If there are new values to update in this collection, update the component
+        if (values[collectionID]) {
+          // Override the component
+          const updatedComponent = {
+            ...components[collectionID],
+            ...values[collectionID],
+          };
+          // Persist the updated component in the db
+          updatedComponents[collectionID] = await collections[
+            collectionID
+          ].updateOrThrow(updatedComponent);
+
+          //Check if the component's values are updated
+          const verifyOptions = {
+            components: updatedComponents,
+            values,
+            collectionID,
+          };
+          const { isValid, key } = Transaction.verify.byKeys(verifyOptions);
+          if (!isValid) {
+            const errorMsg = `Error at updating the object. The values for the key ${key} does not coincide after updating.`;
+            throw new Error(errorMsg);
+          }
+        }
+      }
+
+      // return updated components
+      return components.map((component, collectionID) => {
+        if (updatedComponents[collectionID])
+          return updatedComponents[collectionID];
+        else return component;
+      });
+    } catch (error) {
+      // Revert back the changes made in the db by the update method
+      for (
+        let collectionID = 0;
+        collectionID < updatedComponents.length;
+        collectionID++
+      ) {
+        // If there is an updated component reset it in the db
+        if (updatedComponents[collectionID]) {
+          await collections[collectionID].update(components[collectionID]);
+        }
+      }
+      // Raise the error
+      throw error;
+    }
+  };
 
   /**
    * The function deletes a single meaningful object spread across multiple database tables (collections) and
-   * return the deleteed object in the form of an array of components (distinct rows from different database tables).
+   * return the deleted object in the form of an array of components (distinct rows from different database tables).
    * There is an one-to-one correspondence between the components array and the collections array in the same order.
-   * There is a revert back operation to be performed on the database within the method.
-   * @param operation contains the string id and the configuration on how to be deleted and from where.
+   * There is a revert back operation to be performed on the database within the method in case of error.
+   * @param operation contains the string id and the configuration on how deletion should work.
    * @returns a components array representing an aggregation of multiple rows from data tables, otherwise throws error.
    */
   private delete = async (
@@ -312,15 +388,21 @@ class Transaction {
       });
 
       // Delete the object, component by component:
-      for (let index = 0; index < collections.length; index++) {
+      for (
+        let collectionID = 0;
+        collectionID < collections.length;
+        collectionID++
+      ) {
         // Delete a component
-        const component = await collections[index].delete(components[index]);
-        if (component) deletedComponents[index] = component;
+        const component = await collections[collectionID].delete(
+          components[collectionID]
+        );
+        if (component) deletedComponents[collectionID] = component;
 
         // Check if the component was indeed deleted
         const verifyOptions = {
-          collection: collections[index],
-          object: components[index],
+          collection: collections[collectionID],
+          object: components[collectionID],
         };
         const { isValid } = Transaction.verify.byReading(verifyOptions);
         if (!isValid) {
