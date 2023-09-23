@@ -264,7 +264,6 @@ class APIHandler {
           serializedComponents[collectionID]
         );
       }
-      console.log("SA: ", serializedComponents);
 
       // Combine the updated components
       const serializedObject = serializedComponents.reduce((prev, curr) => {

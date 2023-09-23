@@ -1,7 +1,7 @@
 import Chat from "@/components/chat/chat";
 import Conversations from "@/components/conversations/conversations";
 import Menu from "@/components/menu/menu";
-import UserProfile from "@/db/UserProfile";
+// import UserProfile from "@/db/UserProfile";
 import { Box, Grid } from "@mui/material";
 
 const styles = {
@@ -13,7 +13,7 @@ const styles = {
 };
 
 export default async function Home() {
-  const userProfile = await UserProfile.get("rec_cjutmrqcpifs90st609g");
+  // const userProfile = await UserProfile.get("rec_cjutmrqcpifs90st609g");
 
   return (
     <Box sx={styles.root}>
@@ -25,7 +25,7 @@ export default async function Home() {
           <Conversations />
         </Grid>
         <Grid item md={8}>
-          <Chat profile={userProfile} />
+          <Chat />
         </Grid>
       </Grid>
     </Box>
