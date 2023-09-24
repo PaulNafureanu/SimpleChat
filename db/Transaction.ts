@@ -3,45 +3,60 @@ import { Collection, CollectionMap } from "./APIHandler";
 import { getXataClient } from "./xata";
 const xata = getXataClient();
 
-// Define operation types:
-
-interface QueryOperation {
-  type: "query";
-  data: { pagination: object };
-  config?: OperationConfig;
-}
-interface CreateOperation {
-  type: "create";
-  data: { values: any[] };
-  config?: OperationConfig;
-}
-interface GetOperation {
-  type: "get";
-  data: { id: string };
-  config?: OperationConfig;
-}
-interface UpdateOperation {
-  type: "update";
-  data: { id: string; values: any[] };
-  config?: OperationConfig;
-}
-interface DeleteOperation {
-  type: "delete";
-  data: { id: string };
+/**
+ * Each operation type requires an unique type name, a data object and a cofiguration object.
+ */
+interface BaseOperation {
+  type: string;
+  data: object;
   config?: OperationConfig;
 }
 
-type Operation =
-  | QueryOperation
-  | CreateOperation
-  | GetOperation
-  | UpdateOperation
-  | DeleteOperation;
-
+/**
+ * The configuration of an operation.
+ */
 interface OperationConfig {
   collections: Collection[];
   collectionMap: CollectionMap;
 }
+
+// Defining only 5 supported operation types:
+
+interface QueryOperation extends BaseOperation {
+  type: "query";
+  data: { pagination: object };
+}
+interface CreateOperation extends BaseOperation {
+  type: "create";
+  data: { values: any[] };
+}
+interface GetOperation extends BaseOperation {
+  type: "get";
+  data: { id: string };
+}
+interface UpdateOperation extends BaseOperation {
+  type: "update";
+  data: { id: string; values: any[] };
+}
+interface DeleteOperation extends BaseOperation {
+  type: "delete";
+  data: { id: string };
+}
+
+interface ExtendedOptions extends BaseOperation {
+  useResultForValues?: number | undefined;
+}
+
+type Operation =
+  | (QueryOperation & ExtendedOptions)
+  | (CreateOperation & ExtendedOptions)
+  | (GetOperation & ExtendedOptions)
+  | (UpdateOperation & ExtendedOptions)
+  | (DeleteOperation & ExtendedOptions);
+
+type OperationResult =
+  | Readonly<SelectedPick<any, ["*"]>>[][]
+  | Readonly<SelectedPick<any, ["*"]>>[];
 
 class Transaction {
   // Default operation configs
@@ -60,6 +75,7 @@ class Transaction {
   };
 
   public readonly operations: (Operation | null)[] = [];
+  public readonly results: OperationResult[] = [];
   private config?: OperationConfig;
   constructor(config?: OperationConfig) {
     // Init a new transaction with common operation config
@@ -115,9 +131,7 @@ class Transaction {
    * @param operation contains the options and the configuration on how reading should work.
    * @returns a 2D matrix [object][components] representing an aggregation of multiple rows from data tables forming an array of objects, otherwise a simple empty array.
    */
-  private query = async (
-    operation: QueryOperation & { config: OperationConfig }
-  ) => {
+  private query = async (operation: Required<QueryOperation>) => {
     try {
       // Prepare data
       const { pagination } = operation.data;
@@ -181,9 +195,7 @@ class Transaction {
    * @param operation contains the values and the configuration on how creation on a new object should work.
    * @returns a components array representing an aggregation of multiple rows from data tables, otherwise throws error.
    */
-  private create = async (
-    operation: CreateOperation & { config: OperationConfig }
-  ) => {
+  private create = async (operation: Required<CreateOperation>) => {
     // Prepare data
     const { values } = operation.data;
     const { collections, collectionMap } = operation.config;
@@ -252,9 +264,7 @@ class Transaction {
    * @param operation contains the string id and the configuration on how reading should work.
    * @returns a components array representing an aggregation of multiple rows from data tables, otherwise empty array.
    */
-  private get = async (
-    operation: GetOperation & { config: OperationConfig }
-  ) => {
+  private get = async (operation: Required<GetOperation>) => {
     try {
       // Prepare data
       const { id } = operation.data;
@@ -290,9 +300,7 @@ class Transaction {
    * @param operation contains the string id, the new values and the configuration on how the update should work.
    * @returns a components array representing an aggregation of multiple rows from data tables, otherwise throws error.
    */
-  private update = async (
-    operation: UpdateOperation & { config: OperationConfig }
-  ) => {
+  private update = async (operation: Required<UpdateOperation>) => {
     // Prepare data
     const { id, values } = operation.data;
     const { collections } = operation.config;
@@ -370,9 +378,7 @@ class Transaction {
    * @param operation contains the string id and the configuration on how deletion should work.
    * @returns a components array representing an aggregation of multiple rows from data tables, otherwise throws error.
    */
-  private delete = async (
-    operation: DeleteOperation & { config: OperationConfig }
-  ) => {
+  private delete = async (operation: Required<DeleteOperation>) => {
     // Prepare data
     const { id } = operation.data;
     const { collections } = operation.config;
@@ -435,8 +441,10 @@ class Transaction {
    * @param operation the operation to be added
    * @returns the operation id in the operation array
    */
-  public readonly add = (operation: Operation) =>
-    this.operations.push(operation) - 1;
+  public readonly add = (operation: Operation) => {
+    const operationID = this.operations.push(operation) - 1;
+    return operationID;
+  };
 
   /**
    * Remove an operation from the current transaction
@@ -446,12 +454,58 @@ class Transaction {
   public readonly remove = (operationID: number) => {
     let operation = this.operations[operationID];
     this.operations[operationID] = null;
+
     // Return the operation if it is found
     if (operation) return { ...operation } as Operation;
     else undefined;
   };
 
-  public readonly run = () => {};
+  public readonly run = async () => {
+    for (
+      let operationID = 0;
+      operationID < this.operations.length;
+      operationID++
+    ) {
+      let extendedOperation = this.operations[operationID];
+      if (!extendedOperation) continue;
+
+      const config = extendedOperation.config || this.config;
+      if (!config)
+        throw new Error("Configuration of the operation is not provided.");
+
+      const operation = { ...extendedOperation, config };
+
+      // If the useResultForValues flag is set, update the data operation object
+      const useResult = extendedOperation.useResultForValues;
+      const values = useResult ? this.results[useResult] : undefined;
+
+      // If the operation was not removed and has config, run it:
+      switch (operation.type) {
+        case "query": {
+          this.results[operationID] = await this.query(operation);
+          break;
+        }
+        case "create": {
+          if (values) operation.data.values = values;
+          this.results[operationID] = await this.create(operation);
+          break;
+        }
+        case "get": {
+          this.results[operationID] = await this.get(operation);
+          break;
+        }
+        case "update": {
+          if (values) operation.data.values = values;
+          this.results[operationID] = await this.update(operation);
+          break;
+        }
+        case "delete": {
+          this.results[operationID] = await this.delete(operation);
+          break;
+        }
+      }
+    }
+  };
 }
 
 export default Transaction;
@@ -459,5 +513,10 @@ export default Transaction;
 // Example of a transaction
 const transaction = new Transaction(Transaction.configs.UserProfile);
 transaction.add({ type: "create", data: { values: [] } });
+transaction.add({
+  type: "create",
+  data: { values: [] },
+  useResultForValues: 0,
+});
 transaction.add({ type: "delete", data: { id: "" } });
 transaction.run();
