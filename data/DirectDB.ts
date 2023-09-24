@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import Validator from "@/db/Validator";
-import UserProfile from "@/db/UserProfile";
+import Validator from "@/db2/Validator";
+import UserProfile from "@/db2/UserProfile";
 import fs from "node:fs";
 import path from "node:path";
 

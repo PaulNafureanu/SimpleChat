@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import APIHandler from "@/db/APIHandler";
+import APIHandler from "@/db2/APIHandler";
 
 // Define route handler
 const route = new APIHandler(APIHandler.options.UserProfile);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import TokenGenerator from "./TokenGenerator";
-import { ProfilesRecord, getXataClient } from "@/db/xata";
+import { ProfilesRecord, getXataClient } from "@/db2/xata";
 import { SelectedPick } from "@xata.io/client";
 
 const xata = getXataClient();

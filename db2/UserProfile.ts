@@ -1,4 +1,4 @@
-import { ValidUserProfile } from "@/db/Validator";
+import { ValidUserProfile } from "@/db2/Validator";
 import { getXataClient } from "./xata";
 import HashGenerator from "@/lib/HashGenerator";
 import Serializer from "./Serializer";

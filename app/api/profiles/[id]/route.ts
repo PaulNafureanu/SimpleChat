@@ -1,4 +1,4 @@
-import APIHandler from "@/db/APIHandler";
+import APIHandler from "@/db2/APIHandler";
 import { NextRequest } from "next/server";
 
 // Define route handler
