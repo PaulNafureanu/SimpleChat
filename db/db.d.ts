@@ -150,7 +150,7 @@ type Operation =
   | DeleteOperation;
 
 /**
- * Type interface for the options allowed on database table operations.
+ * Type interface for the options allowed on database operations.
  */
 interface OperationOptions {
   useResultForValues?: OperationID;
